@@ -3,7 +3,7 @@ package e2model
 import (
 	"database/sql"
 
-	"git.panda-fintech.com/golang/e2util/e2array"
+	"github.com/e2u/e2util/e2array"
 )
 
 const (

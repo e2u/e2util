@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"git.panda-fintech.com/golang/e2util/e2crypto"
+	"github.com/e2u/e2util/e2crypto"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

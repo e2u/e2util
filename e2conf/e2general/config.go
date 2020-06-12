@@ -3,7 +3,7 @@ package e2general
 import (
 	"sync"
 
-	"git.panda-fintech.com/golang/e2util/e2error"
+	"github.com/e2u/e2util/e2error"
 )
 
 // Config 通用配置

@@ -6,8 +6,8 @@ import (
 
 	"strings"
 
-	"git.panda-fintech.com/golang/e2util/e2conf/database/e2model"
-	"git.panda-fintech.com/golang/e2util/e2conf/database/e2orm"
+	"github.com/e2u/e2util/e2conf/database/e2model"
+	"github.com/e2u/e2util/e2conf/database/e2orm"
 	"github.com/jinzhu/gorm"
 )
 

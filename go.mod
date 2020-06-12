@@ -1,4 +1,4 @@
-module git.panda-fintech.com/golang/e2util
+module github.com/e2u/e2util
 
 go 1.14
 

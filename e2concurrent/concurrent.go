@@ -6,7 +6,7 @@
 //	"fmt"
 //	"time"
 //
-//	"git.panda-fintech.com/golang/e2util/e2concurrent"
+//	"github.com/e2u/e2util/e2concurrent"
 //)
 //
 //func main() {
