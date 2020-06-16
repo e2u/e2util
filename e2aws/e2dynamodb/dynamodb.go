@@ -148,3 +148,13 @@ func (d *DynamoDB) ScanPages(fn func(page *dynamodb.ScanOutput, lastPage bool) b
 	si.TableName = d.tableName
 	return d.dy.ScanPages(si, fn)
 }
+
+// QueryPages
+func (d *DynamoDB) QueryPages(fn func(page *dynamodb.QueryOutput, lastPage bool) bool, opts ...*dynamodb.QueryInput) error {
+	qi := &dynamodb.QueryInput{}
+	if len(opts) > 0 {
+		qi = opts[0]
+	}
+	qi.TableName = d.tableName
+	return d.dy.QueryPages(qi, fn)
+}
