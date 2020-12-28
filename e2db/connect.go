@@ -3,6 +3,8 @@ package e2db
 import (
 	"math/rand"
 
+	gormlogger "gorm.io/gorm/logger"
+
 	"github.com/e2u/e2util/e2model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
@@ -22,6 +24,7 @@ type Config struct {
 	GormConfig *gorm.Config
 	PrimaryDns string
 	SlaveDns   []string
+	LogLevel   gormlogger.LogLevel
 }
 
 func New(config *Config) *Connect {
@@ -29,8 +32,12 @@ func New(config *Config) *Connect {
 	var primaryDialector gorm.Dialector
 	var slaveDialectors []gorm.Dialector
 	conn := &Connect{}
+	log := NewLogger()
+	log.LogLevel = config.LogLevel
 	if config.GormConfig == nil {
-		config.GormConfig = &gorm.Config{}
+		config.GormConfig = &gorm.Config{
+			Logger: log,
+		}
 	}
 
 	switch config.Dialector.Name() {
