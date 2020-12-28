@@ -3,6 +3,7 @@ package e2conf
 import (
 	"flag"
 	"fmt"
+	"github.com/e2u/e2util/e2conf/database/e2orm"
 	"os"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 type Config struct {
 	Env     string
 	Http    *e2http.Config
+	Orm     *e2orm.Config
 	Logger  *e2logrus.Config
 	General *e2general.Config // 这里存的 key 都会转小写字母
 }
