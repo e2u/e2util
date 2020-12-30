@@ -8,6 +8,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	Port int
+)
+
 func init() {
 	go func() {
 		listener, err := net.Listen("tcp", ":0")
@@ -15,8 +19,8 @@ func init() {
 			logrus.Errorf("make tcp listen error:%v", err)
 			return
 		}
-		port := listener.Addr().(*net.TCPAddr).Port
-		logrus.Infof("pprof port: %v", port)
+		Port = listener.Addr().(*net.TCPAddr).Port
+		logrus.Infof("pprof port: %v", Port)
 		if err := http.Serve(listener, nil); err != nil {
 			logrus.Infof("run pprof error:%v", err)
 			return
