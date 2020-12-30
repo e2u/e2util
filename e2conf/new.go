@@ -3,9 +3,10 @@ package e2conf
 import (
 	"flag"
 	"fmt"
-	"github.com/e2u/e2util/e2conf/database/e2orm"
 	"os"
 	"strings"
+
+	"github.com/e2u/e2util/e2conf/database/e2orm"
 
 	"github.com/e2u/e2util/e2conf/e2general"
 	"github.com/e2u/e2util/e2conf/e2http"

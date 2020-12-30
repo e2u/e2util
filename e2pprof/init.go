@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	Port int
+	PprofPort int
 )
 
 func init() {
@@ -19,8 +19,8 @@ func init() {
 			logrus.Errorf("make tcp listen error:%v", err)
 			return
 		}
-		Port = listener.Addr().(*net.TCPAddr).Port
-		logrus.Infof("pprof port: %v", Port)
+		PprofPort = listener.Addr().(*net.TCPAddr).Port
+		logrus.Infof("pprof port: %v", PprofPort)
 		if err := http.Serve(listener, nil); err != nil {
 			logrus.Infof("run pprof error:%v", err)
 			return
