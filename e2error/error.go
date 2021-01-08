@@ -1,6 +1,10 @@
 package e2error
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/sirupsen/logrus"
+)
 
 var (
 	ErrConfigureError   = func(msg string) error { return fmt.Errorf("configuration error %v", msg) }
@@ -21,4 +25,20 @@ func CheckErrors(stop bool, errs ...error) error {
 		}
 	}
 	return lastErr
+}
+
+func SilentCheckFunc(fs ...func() error) {
+	for i := len(fs) - 1; i >= 0; i-- {
+		if err := fs[i](); err != nil {
+			logrus.Errorf("Received error: %v", err)
+		}
+	}
+}
+
+func SilentCheckErrs(fs ...error) {
+	for i := len(fs) - 1; i >= 0; i-- {
+		if err := fs[i]; err != nil {
+			logrus.Errorf("Received error: %v", err)
+		}
+	}
 }
