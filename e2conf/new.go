@@ -30,6 +30,61 @@ var (
 	configPath string
 )
 
+func NewWithFile(file, env string) *Config {
+	cfg := &Config{
+		General: e2general.New(),
+		Env:     env,
+	}
+
+	v := viper.New()
+
+	err := v.ReadInConfig()
+	v.SetConfigName(file)
+	if err != nil {
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
+	switch env {
+	case "prod":
+		gin.SetMode(gin.ReleaseMode)
+		gin.DisableConsoleColor()
+	case "dev":
+		gin.SetMode(gin.DebugMode)
+	case "sit", "uat":
+		gin.DisableConsoleColor()
+		gin.SetMode(gin.DebugMode)
+	}
+
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+
+	{
+		if cfg.Logger != nil && len(cfg.Logger.LogLevel) == 0 {
+			cfg.Logger.LogLevel = "debug"
+		}
+		ll, err := logrus.ParseLevel(cfg.Logger.LogLevel)
+		if err != nil {
+			ll = logrus.DebugLevel
+		}
+		logrus.SetLevel(ll)
+	}
+
+	rl, err := e2logrus.NewWriter(cfg.Logger)
+	if err != nil {
+		panic(err.Error())
+	}
+	logrus.SetOutput(rl)
+
+	logrus.Trace("logrus trace level active")
+	logrus.Debug("logrus debug level active")
+	logrus.Info("logrus info level active")
+	logrus.Warnf("logrus warn level active")
+	logrus.Error("logrus error level active")
+
+	return cfg
+}
+
 func New() *Config {
 	cfg := &Config{
 		General: e2general.New(),
