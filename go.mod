@@ -15,5 +15,6 @@ require (
 	github.com/tebeka/strftime v0.1.3 // indirect
 	gorm.io/driver/mysql v1.0.3
 	gorm.io/driver/postgres v1.0.5
+	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.20.8
 )

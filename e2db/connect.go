@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -50,6 +51,11 @@ func New(config *Config) *Connect {
 		primaryDialector = postgres.Open(config.PrimaryDns)
 		for _, dns := range config.SlaveDns {
 			slaveDialectors = append(slaveDialectors, postgres.Open(dns))
+		}
+	case "sqlite":
+		primaryDialector = sqlite.Open(config.PrimaryDns)
+		for _, dns := range config.SlaveDns {
+			slaveDialectors = append(slaveDialectors, sqlite.Open(dns))
 		}
 	}
 
