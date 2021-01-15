@@ -64,13 +64,18 @@ func New(config *Config) *Connect {
 		logrus.Errorf("open primary connection error=%v", err)
 	}
 
-	for _, sd := range slaveDialectors {
-		c, err := gorm.Open(sd, config.GormConfig)
-		if err != nil {
-			logrus.Errorf("open slave connection error=%v", err)
-			continue
+	// 如果是 sqlite 數據庫,則只讀庫和讀寫庫是一致的
+	if config.Dialector.Name() == "sqlite" {
+		conn.roDb = append(conn.roDb, conn.db)
+	} else {
+		for _, sd := range slaveDialectors {
+			c, err := gorm.Open(sd, config.GormConfig)
+			if err != nil {
+				logrus.Errorf("open slave connection error=%v", err)
+				continue
+			}
+			conn.roDb = append(conn.roDb, c)
 		}
-		conn.roDb = append(conn.roDb, c)
 	}
 	return conn
 }
