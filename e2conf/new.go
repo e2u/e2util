@@ -37,10 +37,14 @@ func NewWithFile(file, env string) *Config {
 	}
 
 	v := viper.New()
+	v.SetConfigFile(file)
 
 	err := v.ReadInConfig()
-	v.SetConfigName(file)
 	if err != nil {
+		panic(fmt.Errorf("Fatal error config file %s: %s \n", file, err))
+	}
+
+	if err := v.Unmarshal(&cfg); err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
@@ -54,10 +58,6 @@ func NewWithFile(file, env string) *Config {
 		gin.DisableConsoleColor()
 		gin.SetMode(gin.DebugMode)
 	}
-
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
 
 	{
 		if cfg.Logger != nil && len(cfg.Logger.LogLevel) == 0 {
@@ -75,6 +75,10 @@ func NewWithFile(file, env string) *Config {
 		panic(err.Error())
 	}
 	logrus.SetOutput(rl)
+
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
 
 	logrus.Trace("logrus trace level active")
 	logrus.Debug("logrus debug level active")
