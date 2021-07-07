@@ -163,3 +163,22 @@ func (s *S3) DeleteObject(bucket, key string) error {
 	})
 	return err
 }
+
+// CopyObject 複製一個對象
+// srcObject s3://bucket/key
+// target s3://bucket/key
+func (s *S3) CopyObject(srcObject, targetObject string) error {
+	bucket, key, err := s.ParseS3Path(targetObject)
+	if err != nil {
+		return err
+	}
+	if strings.HasPrefix(srcObject, "s3://") {
+		srcObject = strings.Replace(srcObject, "s3://", "", 1)
+	}
+	_, err = s.instance().CopyObject(&s3.CopyObjectInput{
+		Bucket:     aws.String(bucket),
+		Key:        aws.String(key),
+		CopySource: aws.String(url.PathEscape(srcObject)),
+	})
+	return err
+}
