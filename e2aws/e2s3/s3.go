@@ -44,7 +44,11 @@ func (s *S3) ParseS3Path(s3path string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	return u.Host, u.Path, nil
+	path := u.Path
+	if strings.HasPrefix(path, "/") && len(path) > 1 {
+		path = path[1:]
+	}
+	return u.Host, path, nil
 }
 
 // ListBucketFiles 列出指定桶下的符合条件的文件
