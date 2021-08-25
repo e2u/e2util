@@ -69,7 +69,9 @@ func New(maxConcurrent int) *Concurrent {
 	}
 }
 
-// Process 併發執行傳入的方法， input 為入參,output 為返回值
+// Process 併發執行傳入的方法
+// output 為返回值
+// payload 為入參
 func (c *Concurrent) Process(f func(interface{}) *Output, payload interface{}) {
 	c.wg.Add(1)
 	c.concurrentCtl <- struct{}{}
