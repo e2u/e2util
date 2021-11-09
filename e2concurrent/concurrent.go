@@ -1,43 +1,36 @@
 // 併發執行
 // 使用範例
-// package main
+//package main
 //
 //import (
 //	"fmt"
+//	"github.com/e2u/e2util/e2crypto"
+//	"sync"
 //	"time"
-//
-//	"github.com/e2u/e2util/e2concurrent"
 //)
 //
 //func main() {
-//	fmt.Println("start")
+//	c := New(10)
 //
-//	c := e2concurrent.New(5)
-//	defer c.Close()
-//	// 消費處理結果,需要先執行
-//	c.RangeOutput(func(oo *e2concurrent.Output) {
-//		fmt.Println(oo)
-//		time.Sleep(20 * time.Millisecond)
+//	go c.RangeResult(func(o *Output) {
+//		fmt.Printf("args: %v, result: %v\n", o.Args, o.Result)
 //	})
 //
-//	// 並行執行處理方法
-//	for i := 0; i <= 100; i++ {
-//		c.Process(process, i)
+//	for i := int64(0); i <= 100; i++ {
+//		fmt.Println("result: >>>>>", i)
+//		go c.Run(i, func(args interface{}) *Output {
+//			ri := e2crypto.RandomUint(1, 8)
+//			time.Sleep(time.Duration(ri) * time.Second)
+//			rs := &Output{
+//				Args:   args,
+//				Result: args.(int64) + ri,
+//				Error:  nil,
+//			}
+//			return rs
+//		})
 //	}
 //
-//	// 等待最終處理結束
 //	c.Wait()
-//	fmt.Println("done")
-//}
-//
-//// 處理方法
-//func process(input interface{}) *e2concurrent.Output {
-//	fmt.Println(">> process", input)
-//	time.Sleep(2 * time.Millisecond)
-//	return &e2concurrent.Output{
-//		Input: input,
-//		Value: "aaaa " + time.Now().Format(time.RFC3339),
-//	}
 //}
 
 package e2concurrent
@@ -46,56 +39,47 @@ import (
 	"sync"
 )
 
-// Output 方法處理結果
 type Output struct {
-	Input interface{}
-	Value interface{}
-	Error error
+	Args   interface{}
+	Result interface{}
+	Error  error
 }
 
 type Concurrent struct {
 	wg            sync.WaitGroup
-	maxConcurrent int           // 最大併發數
+	maxConcurrent int
 	concurrentCtl chan struct{} // 用於控制併發的 channel
 	outputChannel chan *Output  // 結果 channel
 }
 
-func New(maxConcurrent int) *Concurrent {
-	return &Concurrent{
+func New(mc int) *Concurrent {
+	c := &Concurrent{
 		wg:            sync.WaitGroup{},
-		concurrentCtl: make(chan struct{}, maxConcurrent),
-		outputChannel: make(chan *Output, maxConcurrent),
-		maxConcurrent: maxConcurrent,
+		concurrentCtl: make(chan struct{}, mc),
+		outputChannel: make(chan *Output, mc),
+		maxConcurrent: mc,
 	}
-}
-
-// Process 併發執行傳入的方法
-// output 為返回值
-// payload 為入參
-func (c *Concurrent) Process(f func(interface{}) *Output, payload interface{}) {
-	c.wg.Add(1)
-	c.concurrentCtl <- struct{}{}
-	go func(_payload interface{}) {
-		c.outputChannel <- f(_payload) // 傳入的方法輸出結果放入到響應 channel 中
-	}(payload)
-}
-
-// RangeOutput 獲取輸出結果,如果不把 channel 中的結果取走，則阻塞
-func (c *Concurrent) RangeOutput(f func(*Output)) {
-	go func() {
-		for o := range c.outputChannel {
-			c.wg.Done()
-			<-c.concurrentCtl
-			f(o)
-		}
-	}()
+	return c
 }
 
 func (c *Concurrent) Wait() {
 	c.wg.Wait()
-}
-
-func (c *Concurrent) Close() {
 	close(c.outputChannel)
 	close(c.concurrentCtl)
+}
+
+func (c *Concurrent) RangeResult(fc func(*Output)) {
+	for o := range c.outputChannel {
+		c.wg.Done()
+		<-c.concurrentCtl
+		fc(o)
+	}
+}
+
+func (c *Concurrent) Run(args interface{}, fc func(interface{}) *Output) {
+	c.wg.Add(1)
+	c.concurrentCtl <- struct{}{}
+	go func(args interface{}) {
+		c.outputChannel <- fc(args)
+	}(args)
 }
