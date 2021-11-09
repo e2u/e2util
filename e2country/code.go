@@ -1,7 +1,7 @@
 package e2country
 
 var (
-	ContryCodes = []*ContryCode{
+	CountryCodes = []*CountryCode{
 		{Country: "Canada", CountryCode: "1", ISOCode2: "CA", ISOCode3: "CAN"},
 		{Country: "United States", CountryCode: "1", ISOCode2: "US", ISOCode3: "USA"},
 		{Country: "Kazakhstan", CountryCode: "7", ISOCode2: "KZ", ISOCode3: "KAZ"},
@@ -245,7 +245,7 @@ var (
 	}
 )
 
-type ContryCode struct {
+type CountryCode struct {
 	Country     string
 	CountryCode string
 	ISOCode2    string
