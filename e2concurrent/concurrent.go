@@ -18,7 +18,7 @@
 //
 //	for i := int64(0); i <= 100; i++ {
 //		fmt.Println("result: >>>>>", i)
-//		go c.Run(i, func(args interface{}) *Output {
+//		c.Run(i, func(args interface{}) *Output {
 //			ri := e2crypto.RandomUint(1, 8)
 //			time.Sleep(time.Duration(ri) * time.Second)
 //			rs := &Output{
