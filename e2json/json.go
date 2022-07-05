@@ -1,8 +1,11 @@
 package e2json
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -70,4 +73,34 @@ func ParseDate(val string) Date {
 
 func (t Date) String() string {
 	return t.t.Format(DateFormat)
+}
+
+func MustToJSONByte(v interface{}, indent ...bool) []byte {
+	if len(indent) > 0 && indent[0] {
+		b, err := json.MarshalIndent(v, "", "    ")
+		if err != nil {
+			logrus.Errorf("marshal to json error=%v", err)
+			return nil
+		}
+		return b
+	}
+
+	b, err := json.Marshal(v)
+	if err != nil {
+		logrus.Errorf("marshal to json error=%v", err)
+		return nil
+	}
+	return b
+}
+
+func MustToJSONString(v interface{}, indent ...bool) string {
+	return string(MustToJSONByte(v, indent...))
+}
+
+func MustFromJSONByte(b []byte, v interface{}) error {
+	return json.Unmarshal(b, v)
+}
+
+func MustFromJSONString(s string, v interface{}) error {
+	return json.Unmarshal([]byte(s), v)
 }

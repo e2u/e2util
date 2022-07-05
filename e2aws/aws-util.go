@@ -4,24 +4,11 @@ import (
 	"errors"
 	"net"
 	"os"
-	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-)
-
-var (
-	// 缓存 aws session
-	awsSessionMap sync.Map
-)
-
-const (
-	maxRetryCount = 3
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -37,47 +24,18 @@ var (
 //			fmt.Fprintln(os.Stdout, args...)
 //		}))
 func NewSession(region string, cfgs ...*aws.Config) *session.Session {
+	cfg := aws.NewConfig().
+		WithRegion(region).
+		WithCredentialsChainVerboseErrors(true).
+		WithLogLevel(aws.LogOff)
 
-	if v, ok := awsSessionMap.Load(region); ok && v != nil {
-		return v.(*session.Session)
+	sess, err := session.NewSession(cfg)
+	if err != nil {
+		logrus.Errorf("aws new session error=%v", err)
+		return nil
 	}
+	return sess
 
-	var once sync.Once
-	once.Do(func() {
-		retryCount := 0
-	retry:
-		cs := credentials.NewChainCredentials(
-			[]credentials.Provider{
-				&credentials.EnvProvider{}, // 環境變量認證
-				&ec2rolecreds.EC2RoleProvider{
-					Client: ec2metadata.New(func() *session.Session {
-						s, _ := session.NewSession(aws.NewConfig().WithRegion(region))
-						return s
-					}(), &aws.Config{Endpoint: aws.String("http://169.254.169.254/latest")}),
-				},
-			})
-		config := aws.NewConfig().
-			WithRegion(region).
-			WithCredentials(cs).
-			WithCredentialsChainVerboseErrors(true).
-			WithLogLevel(aws.LogOff)
-
-		awsSession, err := session.NewSession(config)
-		if err != nil && retryCount < maxRetryCount {
-			retryCount++
-			time.Sleep(time.Second)
-			goto retry
-		}
-		if err == nil {
-			awsSession = awsSession.Copy(cfgs...)
-			awsSessionMap.Store(region, awsSession)
-		}
-	})
-	if v, ok := awsSessionMap.Load(region); ok && v != nil {
-		return v.(*session.Session)
-	}
-
-	return nil
 }
 
 func GetHostName() (string, error) {

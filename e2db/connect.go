@@ -2,14 +2,15 @@ package e2db
 
 import (
 	"math/rand"
+	"strings"
 
+	"gorm.io/driver/sqlite"
 	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/e2u/e2util/e2model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -26,6 +27,7 @@ type Config struct {
 	PrimaryDns string
 	SlaveDns   []string
 	LogLevel   gormlogger.LogLevel
+	Driver     string
 }
 
 func New(config *Config) *Connect {
@@ -35,9 +37,26 @@ func New(config *Config) *Connect {
 	conn := &Connect{}
 	log := NewLogger()
 	log.LogLevel = config.LogLevel
+
 	if config.GormConfig == nil {
 		config.GormConfig = &gorm.Config{
 			Logger: log,
+		}
+	}
+
+	switch config.Driver {
+	case "postgres", "postgresql", "pgsql":
+		config.Dialector = postgres.Dialector{}
+	case "mysql":
+		config.Dialector = mysql.Dialector{}
+	}
+
+	if config.Dialector == nil {
+		switch {
+		case strings.Contains(config.PrimaryDns, "host="):
+			config.Dialector = postgres.Dialector{}
+		case strings.Contains(config.PrimaryDns, "@tcp("):
+			config.Dialector = mysql.Dialector{}
 		}
 	}
 
@@ -64,7 +83,6 @@ func New(config *Config) *Connect {
 		logrus.Errorf("open primary connection error=%v", err)
 	}
 
-	// 如果是 sqlite 數據庫,則只讀庫和讀寫庫是一致的
 	if config.Dialector.Name() == "sqlite" {
 		conn.roDb = append(conn.roDb, conn.db)
 	} else {
@@ -77,6 +95,7 @@ func New(config *Config) *Connect {
 			conn.roDb = append(conn.roDb, c)
 		}
 	}
+
 	return conn
 }
 
