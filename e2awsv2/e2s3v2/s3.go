@@ -2,10 +2,11 @@ package e2s3v2
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"net/url"
 	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type S3 struct {
@@ -18,9 +19,9 @@ func New(cfg aws.Config, optFns ...func(*s3.Options)) *S3 {
 	}
 }
 
-func (s *S3) instance() *s3.Client {
-	return s.client
-}
+//func (s *S3) instance() *s3.Client {
+//	return s.client
+//}
 
 func (s *S3) ParseS3Path(s3path string) (string, string, error) {
 	if !strings.HasPrefix(s3path, "s3://") {
@@ -36,5 +37,3 @@ func (s *S3) ParseS3Path(s3path string) (string, string, error) {
 	}
 	return u.Host, path, nil
 }
-
-
