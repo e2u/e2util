@@ -16,9 +16,14 @@ import (
 
 func DefaultEngine(root string) *gin.Engine {
 	router := gin.New()
+
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
 	router.Use(gin.Recovery())
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
+
+	router.RemoveExtraSlash = true
+	router.UseH2C = true
+	router.HandleMethodNotAllowed = true
 
 	router.GET(root+"/_health", func(c *gin.Context) {
 		c.Status(http.StatusOK)
