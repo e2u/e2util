@@ -1,6 +1,7 @@
 package e2db
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 
@@ -81,6 +82,7 @@ func New(config *Config) *Connect {
 	conn.db, err = gorm.Open(primaryDialector, config.GormConfig)
 	if err != nil {
 		logrus.Errorf("open primary connection error=%v", err)
+		panic(err)
 	}
 
 	if config.Dialector.Name() == "sqlite" {
@@ -93,6 +95,9 @@ func New(config *Config) *Connect {
 				continue
 			}
 			conn.roDb = append(conn.roDb, c)
+		}
+		if len(slaveDialectors) > 0 && len(conn.roDb) == 0 {
+			panic(fmt.Errorf("no any slave connections"))
 		}
 	}
 
@@ -122,4 +127,28 @@ func (c *Connect) Exists(v interface{}, query string, where ...interface{}) *e2m
 		return e2model.NewNullBool(false, err)
 	}
 	return e2model.NewNullBool(count > 0, nil)
+}
+
+func (c *Connect) Save(v interface{}) error {
+	return c.RW().Save(v).Error
+}
+
+func (c *Connect) Delete(v interface{}) error {
+	return c.RW().Delete(v).Error
+}
+
+func (c *Connect) Patch(v interface{}, patchs []*e2model.HttpPatch) error {
+	updates := make(map[string]interface{})
+	for _, patch := range patchs {
+		updates[patch.Path] = patch.Value
+	}
+	return c.RW().Model(v).Updates(updates).Error
+}
+
+func (c *Connect) DebugRW() *gorm.DB {
+	return c.RW().Debug()
+}
+
+func (c *Connect) DebugRO() *gorm.DB {
+	return c.RO().Debug()
 }

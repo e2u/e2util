@@ -104,3 +104,16 @@ func MustFromJSONByte(b []byte, v interface{}) error {
 func MustFromJSONString(s string, v interface{}) error {
 	return json.Unmarshal([]byte(s), v)
 }
+
+func MustIndentJSONByte(b []byte) []byte {
+	var v interface{}
+	_ = MustFromJSONByte(b, &v)
+	if v != nil {
+		return MustToJSONByte(v, true)
+	}
+	return nil
+}
+
+func MustIndentJSONString(s string) string {
+	return string(MustIndentJSONByte([]byte(s)))
+}
