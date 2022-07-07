@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/aws/aws-sdk-go v1.44.47
 	github.com/aws/aws-sdk-go-v2 v1.16.6
-	github.com/aws/aws-sdk-go-v2/config v1.15.12
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.0
 	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19
 	github.com/gin-gonic/gin v1.8.1

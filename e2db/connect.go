@@ -1,8 +1,9 @@
 package e2db
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 
 	"gorm.io/driver/sqlite"
@@ -111,7 +112,14 @@ func (c *Connect) RW() *gorm.DB {
 
 // RO 返回從數據（只讀）連接
 func (c *Connect) RO() *gorm.DB {
-	return c.roDb[rand.Intn(len(c.roDb))]
+	if len(c.roDb) == 0 {
+		return nil
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(c.roDb))))
+	if err != nil {
+		return c.roDb[0]
+	}
+	return c.roDb[n.Int64()]
 }
 
 // Exists 檢查記錄指定條件的記錄是否存在

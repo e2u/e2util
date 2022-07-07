@@ -1,29 +1,36 @@
 package e2pprof
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	PprofPort int
-)
-
-func init() {
+func Init() {
+	var once sync.Once
 	go func() {
-		listener, err := net.Listen("tcp", ":0")
-		if err != nil {
-			logrus.Errorf("make tcp listen error:%v", err)
-			return
-		}
-		PprofPort = listener.Addr().(*net.TCPAddr).Port
-		logrus.Infof("pprof port: %v", PprofPort)
-		if err := http.Serve(listener, nil); err != nil {
-			logrus.Infof("run pprof error:%v", err)
-			return
-		}
+		once.Do(func() {
+			logrus.Infof("-----------------------------------")
+			logrus.Infof("pprof init")
+
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				logrus.Errorf("tcp listen error: %v", err)
+				return
+			}
+			port := listener.Addr().(*net.TCPAddr).Port
+			logrus.Infof("pprof port: %v", port)
+			pprofUrl := fmt.Sprintf("http://127.0.0.1:%d/debug/pprof", port)
+			logrus.Info(pprofUrl)
+
+			if err := http.Serve(listener, nil); err != nil {
+				logrus.Infof("run pprof error: %v", err)
+				return
+			}
+		})
 	}()
 }

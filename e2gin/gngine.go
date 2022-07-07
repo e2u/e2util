@@ -33,7 +33,6 @@ func DefaultEngine(root string) *gin.Engine {
 		c.Status(http.StatusOK)
 	})
 
-	// pprof 项目监测
 	var once sync.Once
 	go func() {
 		once.Do(func() {
