@@ -141,7 +141,7 @@ func New(input *InitConfigInput) *Config {
 		}
 	}
 
-	if appConf.Logger != nil && len(appConf.Logger.LogLevel) == 0 {
+	if len(appConf.Logger.LogLevel) == 0 {
 		appConf.Logger.LogLevel = "debug"
 	}
 
