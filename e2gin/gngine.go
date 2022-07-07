@@ -22,7 +22,6 @@ func DefaultEngine(root string) *gin.Engine {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	router.RemoveExtraSlash = true
-	router.UseH2C = true
 	router.HandleMethodNotAllowed = true
 
 	router.GET(root+"/_health", func(c *gin.Context) {
