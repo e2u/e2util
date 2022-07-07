@@ -34,14 +34,12 @@ func (l *logger) Info(ctx context.Context, s string, args ...interface{}) {
 	if l.LogLevel >= gormlogger.Info {
 		log.WithContext(ctx).Infof(s, args...)
 	}
-
 }
 
 func (l *logger) Warn(ctx context.Context, s string, args ...interface{}) {
 	if l.LogLevel >= gormlogger.Warn {
 		log.WithContext(ctx).Warnf(s, args...)
 	}
-
 }
 
 func (l *logger) Error(ctx context.Context, s string, args ...interface{}) {

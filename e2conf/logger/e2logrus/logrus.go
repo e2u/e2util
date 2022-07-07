@@ -23,7 +23,6 @@ type Config struct {
 
 // NewWriter 返回一个 writer,可以在 logrus 中使用
 func NewWriter(config *Config) (io.Writer, error) {
-
 	switch config.Output {
 	case "stdout":
 		return os.Stdout, nil

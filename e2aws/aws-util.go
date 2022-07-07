@@ -35,7 +35,6 @@ func NewSession(region string, cfgs ...*aws.Config) *session.Session {
 		return nil
 	}
 	return sess
-
 }
 
 func GetHostName() (string, error) {

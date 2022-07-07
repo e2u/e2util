@@ -10,8 +10,7 @@ import (
 // RandomString 返回一个随机字符串,base64 范围,移除 / 和 b
 func RandomString(n int) string {
 	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		return ""
 	}
 	rs := base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
@@ -26,8 +25,7 @@ func RandomString(n int) string {
 // RandomBytes 返回随机字节数组
 func RandomBytes(n int) []byte {
 	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
+	if _, err := rand.Read(b); err != nil {
 		return []byte("")
 	}
 	return b

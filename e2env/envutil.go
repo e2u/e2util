@@ -27,7 +27,6 @@ func EnvStringVar(p *string, key string, defaultVal string, usage string) {
 	if ev := strings.TrimSpace(os.Getenv(convertEnvKey(key))); len(ev) > 0 {
 		*p = ev
 	}
-
 }
 
 // EnvBoolVar 从命令行参数或环环境变量取参数,优先取环境变量值

@@ -13,18 +13,12 @@ const (
 )
 
 var (
-	// 默认格式，如果要修改格式，则用 e2json.DateFormat 进行定义
-	DateFormat string
+	// DateFormat 默认格式，如果要修改格式，则用 e2json.DateFormat 进行定义
+	DateFormat string = defaultDateFormat
 )
 
 type Date struct {
 	t time.Time
-}
-
-func init() {
-	if len(DateFormat) == 0 {
-		DateFormat = defaultDateFormat
-	}
 }
 
 // NowDate json 序列化時間 time.Time 類型，格式化成日期格式,默認 2006-01-02
