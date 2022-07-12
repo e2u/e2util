@@ -9,6 +9,7 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/goccy/go-json v0.9.8 // indirect
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible

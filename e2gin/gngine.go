@@ -17,20 +17,27 @@ import (
 func DefaultEngine(root string) *gin.Engine {
 	router := gin.New()
 
+	hg := router.Group(root)
+	{
+		hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+			SkipPaths: []string{root + "/_health", "/_health"},
+		}))
+
+		hg.GET("/_health", func(c *gin.Context) {
+			c.String(http.StatusOK, "OK")
+		})
+
+		hg.HEAD("/_health", func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
+	}
+
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
 	router.Use(gin.Recovery())
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	router.RemoveExtraSlash = true
 	router.HandleMethodNotAllowed = true
-
-	router.GET(root+"/_health", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-
-	router.HEAD(root+"/_health", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
 
 	var once sync.Once
 	go func() {

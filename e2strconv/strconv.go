@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+func MustParseInt(s string) int {
+	return int(MustParseInt64(s, 10, 64))
+}
+
 func MustParseInt64(s string, base, bitSize int) int64 {
 	i, _ := strconv.ParseInt(s, base, bitSize)
 	return i
