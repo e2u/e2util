@@ -18,25 +18,33 @@ import (
 
 // Connect 数据库连接
 type Connect struct {
+	*Config
 	db   *gorm.DB
 	roDb []*gorm.DB
 }
 
+type Option struct {
+	Debug bool
+}
+
 // Config 數據庫鏈接配置
 type Config struct {
-	Dialector  gorm.Dialector
-	GormConfig *gorm.Config
-	PrimaryDns string
-	SlaveDns   []string
-	LogLevel   gormlogger.LogLevel
-	Driver     string
+	Dialector         gorm.Dialector
+	GormConfig        *gorm.Config
+	Writer            string
+	Reader            []string
+	LogLevel          gormlogger.LogLevel
+	Driver            string
+	DisableAutoReport bool
 }
 
 func New(config *Config) *Connect {
 	var err error
 	var primaryDialector gorm.Dialector
 	var slaveDialectors []gorm.Dialector
-	conn := &Connect{}
+	conn := &Connect{
+		Config: config,
+	}
 	log := NewLogger()
 	log.LogLevel = config.LogLevel
 
@@ -55,27 +63,33 @@ func New(config *Config) *Connect {
 
 	if config.Dialector == nil {
 		switch {
-		case strings.Contains(config.PrimaryDns, "host="):
+		case strings.Contains(config.Writer, "host="):
 			config.Dialector = postgres.Dialector{}
-		case strings.Contains(config.PrimaryDns, "@tcp("):
+		case strings.Contains(config.Writer, "@tcp("):
 			config.Dialector = mysql.Dialector{}
 		}
 	}
 
 	switch config.Dialector.Name() {
 	case "mysql":
-		primaryDialector = mysql.Open(config.PrimaryDns)
-		for _, dns := range config.SlaveDns {
+		if config.Writer != "" {
+			primaryDialector = mysql.Open(config.Writer)
+		}
+		for _, dns := range config.Reader {
 			slaveDialectors = append(slaveDialectors, mysql.Open(dns))
 		}
 	case "postgres":
-		primaryDialector = postgres.Open(config.PrimaryDns)
-		for _, dns := range config.SlaveDns {
+		if config.Writer != "" {
+			primaryDialector = postgres.Open(config.Writer)
+		}
+		for _, dns := range config.Reader {
 			slaveDialectors = append(slaveDialectors, postgres.Open(dns))
 		}
 	case "sqlite":
-		primaryDialector = sqlite.Open(config.PrimaryDns)
-		for _, dns := range config.SlaveDns {
+		if config.Writer != "" {
+			primaryDialector = sqlite.Open(config.Writer)
+		}
+		for _, dns := range config.Reader {
 			slaveDialectors = append(slaveDialectors, sqlite.Open(dns))
 		}
 	}
@@ -106,19 +120,35 @@ func New(config *Config) *Connect {
 }
 
 // RW 返回主數據（讀寫）連接
-func (c *Connect) RW() *gorm.DB {
+func (c *Connect) RW(opts ...*Option) *gorm.DB {
+	var o *Option
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+
+	if o.Debug {
+		return c.db.Debug()
+	}
 	return c.db
 }
 
 // RO 返回從數據（只讀）連接
-func (c *Connect) RO() *gorm.DB {
+func (c *Connect) RO(opts ...*Option) *gorm.DB {
 	if len(c.roDb) == 0 {
+		logrus.Errorf("no read-only database connections")
 		return nil
 	}
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(c.roDb))))
-	if err != nil {
-		return c.roDb[0]
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(c.roDb))))
+
+	var o *Option
+	if len(opts) > 0 {
+		o = opts[0]
 	}
+
+	if o.Debug {
+		return c.roDb[n.Int64()]
+	}
+
 	return c.roDb[n.Int64()]
 }
 

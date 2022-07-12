@@ -38,3 +38,12 @@ func MustReadAllAndClose(r io.ReadCloser) []byte {
 func MustReadAllAsStringAndClose(r io.ReadCloser) string {
 	return string(MustReadAllAndClose(r))
 }
+
+func MustReadFile(filename string) []byte {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		logrus.Errorf("read file error=%v", err)
+		return nil
+	}
+	return b
+}

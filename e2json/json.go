@@ -2,6 +2,8 @@ package e2json
 
 import (
 	"encoding/json"
+	"io"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -110,4 +112,13 @@ func MustIndentJSONByte(b []byte) []byte {
 
 func MustIndentJSONString(s string) string {
 	return string(MustIndentJSONByte([]byte(s)))
+}
+
+func MustFromReader(r io.Reader, v interface{}) error {
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		logrus.Errorf("read error=%v", err)
+		return err
+	}
+	return MustFromJSONByte(b, v)
 }

@@ -7,13 +7,13 @@ import (
 
 	"github.com/e2u/e2util/e2conf/cache/e2redis"
 	"github.com/e2u/e2util/e2db"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 
 	"github.com/e2u/e2util/e2conf/e2general"
 	"github.com/e2u/e2util/e2conf/e2http"
 	"github.com/e2u/e2util/e2conf/logger/e2logrus"
 	"github.com/e2u/e2util/e2env"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -33,6 +33,7 @@ var (
 	v          = viper.New()
 	env        string
 	searchPath string
+	logLevel   string
 	configFile string
 	appConf    *Config
 )
@@ -46,6 +47,7 @@ type InitConfigInput struct {
 
 func New(input *InitConfigInput) *Config {
 	e2env.EnvStringVar(&env, "env", "dev", "application run env=[dev|sit|uat|prod|unit-test|...]")
+	e2env.EnvStringVar(&logLevel, "log-level", "debug", "set logger level: [debug|info|warn|error]")
 	e2env.EnvStringVar(&searchPath, "search-path", "", "set config search path")
 	e2env.EnvStringVar(&configFile, "config", "", "set config file name")
 
@@ -53,8 +55,8 @@ func New(input *InitConfigInput) *Config {
 		flag.Parse()
 	}
 	fmt.Printf("> env: %s\n", env)
-	fmt.Printf("> search-path: %s\n", searchPath)
-	fmt.Printf("> config: %s\n", configFile)
+	fmt.Printf("> env search-path: %s\n", searchPath)
+	fmt.Printf("> env config: %s\n", configFile)
 
 	if input != nil {
 		if len(input.Env) == 0 {
@@ -79,43 +81,38 @@ func New(input *InitConfigInput) *Config {
 		General: e2general.New(),
 	}
 
-	unmarshalAppConfig := func(_v *viper.Viper) {
-		if err := _v.Unmarshal(&appConf); err != nil {
-			panic(fmt.Errorf("fatal error config file: %w", err))
-		}
-		if len(_v.GetStringMap("general")) > 0 {
-			appConf.General.PutAll(_v.GetStringMap("general"))
-		}
-	}
-
 	filename := input.ConfigName + ".toml"
 	fmt.Printf("> config file=%v\n", filename)
 
 	if f, err := input.ConfigFs.Open(filename); err == nil {
-		fmt.Printf("load from embed fs, file name=%v\n", filename)
+		fmt.Printf("> load from embed fs, file name=%v\n", filename)
 		defer f.Close()
 		v.SetConfigFile(filename)
 		if err := v.ReadConfig(f); err != nil {
 			panic(fmt.Errorf("fatal error config file: %w", err))
 		}
-		unmarshalAppConfig(v)
-		return appConf
-	}
-
-	v.SetConfigName(input.ConfigName)
-	v.SetConfigType("toml")
-
-	for _, ap := range input.AddConfigPath {
-		fmt.Printf("add config path: %v\n", ap)
-		v.AddConfigPath(ap)
-	}
-
-	if err := v.ReadInConfig(); err != nil {
-		panic(fmt.Errorf("fatal error config file: %w", err))
+	} else {
+		v.SetConfigName(input.ConfigName)
+		v.SetConfigType("toml")
+		for _, ap := range input.AddConfigPath {
+			fmt.Printf("add config path: %v\n", ap)
+			v.AddConfigPath(ap)
+		}
+		if err := v.ReadInConfig(); err != nil {
+			panic(fmt.Errorf("fatal error config file: %w", err))
+		}
 	}
 
 	unmarshalAppConfig(v)
 
+	setupGin()
+	setupLogrus()
+
+	return appConf
+}
+
+func setupGin() {
+	fmt.Println("> gin setup")
 	switch env {
 	case "prod":
 		gin.SetMode(gin.ReleaseMode)
@@ -126,7 +123,10 @@ func New(input *InitConfigInput) *Config {
 		gin.DisableConsoleColor()
 		gin.SetMode(gin.DebugMode)
 	}
+}
 
+func setupLogrus() {
+	fmt.Println("> logrus setup")
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:    true,
 		DisableQuote:     true,
@@ -162,6 +162,13 @@ func New(input *InitConfigInput) *Config {
 	logrus.Info("logrus info level active")
 	logrus.Warnf("logrus warn level active")
 	logrus.Error("logrus error level active")
+}
 
-	return appConf
+func unmarshalAppConfig(v *viper.Viper) {
+	if err := v.Unmarshal(&appConf); err != nil {
+		panic(fmt.Errorf("fatal error config file: %w", err))
+	}
+	if len(v.GetStringMap("general")) > 0 {
+		appConf.General.PutAll(v.GetStringMap("general"))
+	}
 }
