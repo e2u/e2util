@@ -121,7 +121,7 @@ func New(config *Config) *Connect {
 
 // RW 返回主數據（讀寫）連接
 func (c *Connect) RW(opts ...*Option) *gorm.DB {
-	var o *Option
+	o := &Option{}
 	if len(opts) > 0 {
 		o = opts[0]
 	}
@@ -140,7 +140,7 @@ func (c *Connect) RO(opts ...*Option) *gorm.DB {
 	}
 	n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(c.roDb))))
 
-	var o *Option
+	o := &Option{}
 	if len(opts) > 0 {
 		o = opts[0]
 	}
