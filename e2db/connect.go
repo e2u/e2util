@@ -146,7 +146,7 @@ func (c *Connect) RO(opts ...*Option) *gorm.DB {
 	}
 
 	if o.Debug {
-		return c.roDb[n.Int64()]
+		return c.roDb[n.Int64()].Debug()
 	}
 
 	return c.roDb[n.Int64()]
