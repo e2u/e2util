@@ -14,13 +14,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func DefaultEngine(root string) *gin.Engine {
+type Option struct {
+	Root          string
+	DisabledPprof bool
+}
+
+func DefaultEngine(opt *Option) *gin.Engine {
+	if opt == nil {
+		opt = &Option{}
+	}
+
 	router := gin.New()
 
-	hg := router.Group(root)
+	hg := router.Group(opt.Root)
 	{
 		hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
-			SkipPaths: []string{root + "/_health", "/_health"},
+			SkipPaths: []string{opt.Root + "/_health", "/_health"},
 		}))
 
 		hg.GET("/_health", func(c *gin.Context) {
@@ -39,6 +48,10 @@ func DefaultEngine(root string) *gin.Engine {
 	router.RemoveExtraSlash = true
 	router.HandleMethodNotAllowed = true
 
+	if opt.DisabledPprof {
+		return router
+	}
+
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -53,7 +66,7 @@ func DefaultEngine(root string) *gin.Engine {
 			pprofUrl := fmt.Sprintf("http://127.0.0.1:%d/debug/pprof", port)
 			logrus.Info(pprofUrl)
 
-			router.GET(root+"/pprof-info", func(c *gin.Context) {
+			router.GET(opt.Root+"/pprof-info", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{
 					"pprof_url": pprofUrl,
 					"command": []string{
