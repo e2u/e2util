@@ -17,6 +17,7 @@ import (
 type Option struct {
 	Root          string
 	DisabledPprof bool
+	Engine        *gin.Engine
 }
 
 func DefaultEngine(opt *Option) *gin.Engine {
@@ -24,7 +25,13 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		opt = &Option{}
 	}
 
-	router := gin.New()
+	var router *gin.Engine
+
+	if opt.Engine == nil {
+		router = gin.New()
+	} else {
+		router = opt.Engine
+	}
 
 	hg := router.Group(opt.Root)
 	{
