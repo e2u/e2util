@@ -32,8 +32,9 @@ func TestGenCode(t *testing.T) {
 }
 */
 
-func RunTest(url, method string, router *gin.Engine, handler gin.HandlerFunc, input any, output any) *httptest.ResponseRecorder {
+func runTest(url, method string, headers map[string]string, router *gin.Engine, handler gin.HandlerFunc, input any, output any) *httptest.ResponseRecorder {
 	var req *http.Request
+	w := httptest.NewRecorder()
 
 	switch method {
 	case http.MethodPost, http.MethodPut:
@@ -44,17 +45,20 @@ func RunTest(url, method string, router *gin.Engine, handler gin.HandlerFunc, in
 		req, _ = http.NewRequest(method, url, nil)
 	}
 
-	w := httptest.NewRecorder()
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
 	router.ServeHTTP(w, req)
 	respRaw, _ := ioutil.ReadAll(w.Body)
 	_ = e2json.MustFromJSONByte(respRaw, output)
 	return w
 }
 
-func RenPost(url string, router *gin.Engine, handler gin.HandlerFunc, input any, output any) *httptest.ResponseRecorder {
-	return RunTest(url, http.MethodPost, router, handler, input, output)
+func RunPost(url string, headers map[string]string, router *gin.Engine, handler gin.HandlerFunc, input any, output any) *httptest.ResponseRecorder {
+	return runTest(url, http.MethodPost, headers, router, handler, input, output)
 }
 
-func RunGet(url string, router *gin.Engine, handler gin.HandlerFunc, output any) *httptest.ResponseRecorder {
-	return RunTest(url, http.MethodGet, router, handler, nil, output)
+func RunGet(url string, headers map[string]string, router *gin.Engine, handler gin.HandlerFunc, output any) *httptest.ResponseRecorder {
+	return runTest(url, http.MethodGet, headers, router, handler, nil, output)
 }
