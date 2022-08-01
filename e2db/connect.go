@@ -58,6 +58,8 @@ func New(config *Config) *Connect {
 		config.Dialector = postgres.Dialector{}
 	case "mysql":
 		config.Dialector = mysql.Dialector{}
+	case "sqlite", "sqlite3":
+		config.Dialector = sqlite.Dialector{}
 	}
 
 	if config.Dialector == nil {
