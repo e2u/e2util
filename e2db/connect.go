@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"strings"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/e2u/e2util/e2model"
@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Connect 数据库连接
+// Connect
 type Connect struct {
 	*Config
 	db   *gorm.DB
@@ -71,20 +71,25 @@ func New(config *Config) *Connect {
 
 	switch config.Dialector.Name() {
 	case "mysql":
+		// user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
 		if config.Writer != "" {
 			primaryDialector = mysql.Open(config.Writer)
 		}
 		for _, dns := range config.Reader {
 			slaveDialectors = append(slaveDialectors, mysql.Open(dns))
 		}
+
 	case "postgres":
+		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
 		if config.Writer != "" {
 			primaryDialector = postgres.Open(config.Writer)
 		}
 		for _, dns := range config.Reader {
 			slaveDialectors = append(slaveDialectors, postgres.Open(dns))
 		}
+
 	case "sqlite":
+		// file:db1?mode=memory&cache=shared
 		if config.Writer != "" {
 			primaryDialector = sqlite.Open(config.Writer)
 		}
