@@ -22,13 +22,12 @@ const (
 	KeyTypeStringArray = "SS"
 )
 
-// DynamoDB
 type DynamoDB struct {
 	tableName *string
 	dy        *dynamodb.DynamoDB
 }
 
-// NewDynamoDB
+// New NewDynamoDB
 func New(tableName string, sess *session.Session) *DynamoDB {
 	return &DynamoDB{
 		tableName: aws.String(tableName),
@@ -116,7 +115,6 @@ func (d *DynamoDB) Put(ar interface{}, opts ...*dynamodb.PutItemInput) error {
 	return err
 }
 
-// DeleteByPKAndSK
 func (d *DynamoDB) DeleteByPKAndSK(partitionKey *Key, sortKey *Key, opts ...*dynamodb.DeleteItemInput) error {
 	di := &dynamodb.DeleteItemInput{}
 	if len(opts) > 0 {
@@ -134,12 +132,10 @@ func (d *DynamoDB) DeleteByPKAndSK(partitionKey *Key, sortKey *Key, opts ...*dyn
 	return err
 }
 
-// DeleteByPK
 func (d *DynamoDB) DeleteByPK(partitionKey *Key, opts ...*dynamodb.DeleteItemInput) error {
 	return d.DeleteByPKAndSK(partitionKey, nil, opts...)
 }
 
-// ScanPages
 func (d *DynamoDB) ScanPages(fn func(page *dynamodb.ScanOutput, lastPage bool) bool, opts ...*dynamodb.ScanInput) error {
 	si := &dynamodb.ScanInput{}
 	if len(opts) > 0 {
@@ -149,7 +145,6 @@ func (d *DynamoDB) ScanPages(fn func(page *dynamodb.ScanOutput, lastPage bool) b
 	return d.dy.ScanPages(si, fn)
 }
 
-// QueryPages
 func (d *DynamoDB) QueryPages(fn func(page *dynamodb.QueryOutput, lastPage bool) bool, opts ...*dynamodb.QueryInput) error {
 	qi := &dynamodb.QueryInput{}
 	if len(opts) > 0 {

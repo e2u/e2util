@@ -27,7 +27,6 @@ type Option struct {
 	Debug bool
 }
 
-// Config 數據庫鏈接配置
 type Config struct {
 	Dialector         gorm.Dialector
 	GormConfig        *gorm.Config
@@ -119,7 +118,6 @@ func New(config *Config) *Connect {
 	return conn
 }
 
-// RW 返回主數據（讀寫）連接
 func (c *Connect) RW(opts ...*Option) *gorm.DB {
 	o := &Option{}
 	if len(opts) > 0 {
@@ -132,7 +130,6 @@ func (c *Connect) RW(opts ...*Option) *gorm.DB {
 	return c.db
 }
 
-// RO 返回從數據（只讀）連接
 func (c *Connect) RO(opts ...*Option) *gorm.DB {
 	if len(c.roDb) == 0 {
 		logrus.Errorf("no read-only database connections")
@@ -152,9 +149,7 @@ func (c *Connect) RO(opts ...*Option) *gorm.DB {
 	return c.roDb[n.Int64()]
 }
 
-// Exists 檢查記錄指定條件的記錄是否存在
-// 從讀寫庫查找，避免數據同步問題
-// 使用方法:
+// Exists
 // exs := d.Exists(&model.Dictionary{}, "category_code = ? and code = ?", categoryCode, code)
 // return exs.Bool, exs.Error
 func (c *Connect) Exists(v interface{}, query string, where ...interface{}) *e2model.NullBool {
