@@ -2,12 +2,16 @@ package e2db
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	gormlogger "gorm.io/gorm/logger"
+
+	"github.com/DATA-DOG/go-txdb"
 
 	"github.com/e2u/e2util/e2model"
 	"github.com/sirupsen/logrus"
@@ -16,11 +20,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// Connect
 type Connect struct {
 	*Config
-	db   *gorm.DB
-	roDb []*gorm.DB
+	db        *gorm.DB
+	roDb      []*gorm.DB
+	dialector gorm.Dialector
 }
 
 type Option struct {
@@ -28,96 +32,116 @@ type Option struct {
 }
 
 type Config struct {
-	Dialector         gorm.Dialector
-	GormConfig        *gorm.Config
+	*gorm.Config
 	Writer            string
 	Reader            []string
 	LogLevel          gormlogger.LogLevel
 	Driver            string
 	DisableAutoReport bool
+	EnableTxDB        bool
+	EnableDebug       bool
 }
 
-func New(config *Config) *Connect {
+func New(cfg *Config) *Connect {
 	var err error
 	var primaryDialector gorm.Dialector
-	var slaveDialectors []gorm.Dialector
+	var slaveDialector []gorm.Dialector
 	conn := &Connect{
-		Config: config,
+		Config: cfg,
 	}
 	log := NewLogger()
-	log.LogLevel = config.LogLevel
+	log.LogLevel = cfg.LogLevel
 
-	if config.GormConfig == nil {
-		config.GormConfig = &gorm.Config{
+	if cfg.Config == nil {
+		cfg.Config = &gorm.Config{
 			Logger: log,
 		}
 	}
 
-	switch config.Driver {
+	switch cfg.Driver {
 	case "postgres", "postgresql", "pgsql":
-		config.Dialector = postgres.Dialector{}
+		conn.dialector = postgres.Dialector{}
 	case "mysql":
-		config.Dialector = mysql.Dialector{}
+		conn.dialector = mysql.Dialector{}
 	case "sqlite", "sqlite3":
-		config.Dialector = sqlite.Dialector{}
+		conn.dialector = sqlite.Dialector{}
 	}
 
-	if config.Dialector == nil {
+	if conn.dialector == nil {
 		switch {
-		case strings.Contains(config.Writer, "host="):
-			config.Dialector = postgres.Dialector{}
-		case strings.Contains(config.Writer, "@tcp("):
-			config.Dialector = mysql.Dialector{}
+		case strings.Contains(cfg.Writer, "host="):
+			conn.dialector = postgres.Dialector{}
+		case strings.Contains(cfg.Writer, "@tcp("):
+			conn.dialector = mysql.Dialector{}
+		case strings.HasPrefix(cfg.Writer, "file:"):
+			conn.dialector = sqlite.Dialector{}
 		}
 	}
 
-	switch config.Dialector.Name() {
+	switch conn.dialector.Name() {
 	case "mysql":
 		// user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-		if config.Writer != "" {
-			primaryDialector = mysql.Open(config.Writer)
-		}
-		for _, dns := range config.Reader {
-			slaveDialectors = append(slaveDialectors, mysql.Open(dns))
+		if cfg.EnableTxDB {
+			panic("TxDB is not support")
+		} else {
+			if cfg.Writer != "" {
+				primaryDialector = mysql.Open(cfg.Writer)
+			}
+			for _, dns := range cfg.Reader {
+				slaveDialector = append(slaveDialector, mysql.Open(dns))
+			}
 		}
 
 	case "postgres":
 		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
-		if config.Writer != "" {
-			primaryDialector = postgres.Open(config.Writer)
+		if cfg.EnableTxDB {
+			txdb.Register("txdb", "pgx", cfg.Writer)
+			if sqlDB, err := sql.Open("txdb", uuid.NewString()); err == nil {
+				primaryDialector = postgres.New(postgres.Config{Conn: sqlDB})
+				slaveDialector = append(slaveDialector, postgres.New(postgres.Config{Conn: sqlDB}))
+			} else {
+				logrus.Errorf("open wirter connection error=%v", err)
+			}
+		} else {
+			if cfg.Writer != "" {
+				primaryDialector = postgres.Open(cfg.Writer)
+			}
+			for _, dns := range cfg.Reader {
+				slaveDialector = append(slaveDialector, postgres.Open(dns))
+			}
 		}
-		for _, dns := range config.Reader {
-			slaveDialectors = append(slaveDialectors, postgres.Open(dns))
-		}
-
 	case "sqlite":
 		// file:db1?mode=memory&cache=shared
-		if config.Writer != "" {
-			primaryDialector = sqlite.Open(config.Writer)
-		}
-		for _, dns := range config.Reader {
-			slaveDialectors = append(slaveDialectors, sqlite.Open(dns))
+		if cfg.EnableTxDB {
+			panic("TxDB is not support")
+		} else {
+			if cfg.Writer != "" {
+				primaryDialector = sqlite.Open(cfg.Writer)
+			}
+			for _, dns := range cfg.Reader {
+				slaveDialector = append(slaveDialector, sqlite.Open(dns))
+			}
 		}
 	}
 
-	conn.db, err = gorm.Open(primaryDialector, config.GormConfig)
+	conn.db, err = gorm.Open(primaryDialector, cfg.Config)
 	if err != nil {
 		logrus.Errorf("open primary connection error=%v", err)
 		panic(err)
 	}
 
-	if config.Dialector.Name() == "sqlite" {
+	if conn.dialector.Name() == "sqlite" {
 		conn.roDb = append(conn.roDb, conn.db)
 	} else {
-		for _, sd := range slaveDialectors {
-			c, err := gorm.Open(sd, config.GormConfig)
+		for _, sd := range slaveDialector {
+			c, err := gorm.Open(sd, cfg.Config)
 			if err != nil {
 				logrus.Errorf("open slave connection error=%v", err)
 				continue
 			}
 			conn.roDb = append(conn.roDb, c)
 		}
-		if len(slaveDialectors) > 0 && len(conn.roDb) == 0 {
+		if len(slaveDialector) > 0 && len(conn.roDb) == 0 {
 			panic(fmt.Errorf("no any slave connections"))
 		}
 	}
@@ -131,7 +155,7 @@ func (c *Connect) RW(opts ...*Option) *gorm.DB {
 		o = opts[0]
 	}
 
-	if o.Debug {
+	if o.Debug || c.EnableDebug {
 		return c.db.Debug()
 	}
 	return c.db
@@ -149,7 +173,7 @@ func (c *Connect) RO(opts ...*Option) *gorm.DB {
 		o = opts[0]
 	}
 
-	if o.Debug {
+	if o.Debug || c.EnableDebug {
 		return c.roDb[n.Int64()].Debug()
 	}
 

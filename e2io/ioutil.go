@@ -2,13 +2,13 @@ package e2io
 
 import (
 	"io"
-	"io/ioutil"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
 
 func MustReadAll(r io.Reader) []byte {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		logrus.Errorf("read all error=%v", err)
 		return nil
@@ -21,7 +21,7 @@ func MustReadAllAsString(r io.Reader) string {
 }
 
 func MustReadAllAndClose(r io.ReadCloser) []byte {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		logrus.Errorf("read all error=%v", err)
 		return nil
@@ -40,7 +40,7 @@ func MustReadAllAsStringAndClose(r io.ReadCloser) string {
 }
 
 func MustReadFile(filename string) []byte {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		logrus.Errorf("read file error=%v", err)
 		return nil

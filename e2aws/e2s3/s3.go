@@ -3,7 +3,7 @@ package e2s3
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -111,7 +111,7 @@ func (s *S3) GetObject(bucketName, key string, opts ...*s3.GetObjectInput) ([]by
 		return nil, err
 	}
 	defer func() { _ = out.Body.Close() }()
-	b, err := ioutil.ReadAll(out.Body)
+	b, err := io.ReadAll(out.Body)
 	return b, err
 }
 

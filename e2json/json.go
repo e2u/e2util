@@ -3,7 +3,6 @@ package e2json
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"strings"
 	"time"
 
@@ -115,7 +114,7 @@ func MustIndentJSONString(s string) string {
 }
 
 func MustFromReader(r io.Reader, v interface{}) error {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		logrus.Errorf("read error=%v", err)
 		return err

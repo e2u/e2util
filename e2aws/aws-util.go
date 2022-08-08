@@ -18,7 +18,8 @@ var (
 
 // NewSession 返回一个 aws session
 // 默认不输出日志 ，如需日志输出，可以在 cfgs 参数中传入
-// 	cfgs := aws.NewConfig().
+//
+//	cfgs := aws.NewConfig().
 //		WithLogLevel(aws.LogDebugWithHTTPBody).
 //		WithLogger(aws.LoggerFunc(func(args ...interface{}) {
 //			fmt.Fprintln(os.Stdout, args...)

@@ -2,7 +2,7 @@ package e2gintest
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -50,7 +50,7 @@ func runTest(url, method string, headers map[string]string, router *gin.Engine, 
 	}
 
 	router.ServeHTTP(w, req)
-	respRaw, _ := ioutil.ReadAll(w.Body)
+	respRaw, _ := io.ReadAll(w.Body)
 	_ = e2json.MustFromJSONByte(respRaw, output)
 	return w
 }
