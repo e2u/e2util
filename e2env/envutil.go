@@ -23,24 +23,46 @@ func convertEnvKey(key string) string {
 
 // EnvStringVar 从命令行参数或环环境变量取参数,优先取环境变量值
 func EnvStringVar(p *string, key string, defaultVal string, usage string) {
-	flag.StringVar(p, key, defaultVal, fmt.Sprintf("%s=%s ,%s", convertEnvKey(key), defaultVal, usage))
-	if ev := strings.TrimSpace(os.Getenv(convertEnvKey(key))); len(ev) > 0 {
-		*p = ev
+	if v, ok := os.LookupEnv(convertEnvKey(key)); ok && v != "" {
+		*p = v
+		return
 	}
+	if flag.Lookup(key) == nil {
+		flag.StringVar(p, key, defaultVal, fmt.Sprintf("%s=%s ,%s", convertEnvKey(key), defaultVal, usage))
+	}
+
+	*p = flag.Lookup(key).Value.(flag.Getter).Get().(string)
 }
 
 // EnvBoolVar 从命令行参数或环环境变量取参数,优先取环境变量值
 func EnvBoolVar(p *bool, key string, defaultVal bool, usage string) {
-	flag.BoolVar(p, key, defaultVal, fmt.Sprintf("%s=%v ,%s", convertEnvKey(key), defaultVal, usage))
-	if ev, err := strconv.ParseBool(os.Getenv(convertEnvKey(key))); err == nil {
-		*p = ev
+	if v, ok := os.LookupEnv(convertEnvKey(key)); ok && v != "" {
+		if ev, err := strconv.ParseBool(v); err == nil {
+			*p = ev
+			return
+		}
 	}
+
+	if flag.Lookup(key) == nil {
+		flag.BoolVar(p, key, defaultVal, fmt.Sprintf("%s=%v ,%s", convertEnvKey(key), defaultVal, usage))
+	}
+
+	*p = flag.Lookup(key).Value.(flag.Getter).Get().(bool)
 }
 
 // EnvIntVar 从命令行参数或环环境变量取参数,优先取环境变量值
 func EnvIntVar(p *int, key string, defaultVal int, usage string) {
-	flag.IntVar(p, key, defaultVal, fmt.Sprintf("%s=%v ,%s", convertEnvKey(key), defaultVal, usage))
-	if ev, err := strconv.Atoi(os.Getenv(convertEnvKey(key))); err == nil {
-		*p = ev
+
+	if v, ok := os.LookupEnv(convertEnvKey(key)); ok && v != "" {
+		if ev, err := strconv.Atoi(v); err == nil {
+			*p = ev
+			return
+		}
 	}
+
+	if flag.Lookup(key) == nil {
+		flag.IntVar(p, key, defaultVal, fmt.Sprintf("%s=%v ,%s", convertEnvKey(key), defaultVal, usage))
+	}
+
+	*p = flag.Lookup(key).Value.(flag.Getter).Get().(int)
 }

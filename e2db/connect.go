@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
@@ -19,6 +20,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+var txDBOncePG sync.Once
 
 type Connect struct {
 	*Config
@@ -95,7 +98,9 @@ func New(cfg *Config) *Connect {
 	case "postgres":
 		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
 		if cfg.EnableTxDB {
-			txdb.Register("txdb", "pgx", cfg.Writer)
+			txDBOncePG.Do(func() {
+				txdb.Register("txdb", "pgx", cfg.Writer)
+			})
 			if sqlDB, err := sql.Open("txdb", uuid.NewString()); err == nil {
 				primaryDialector = postgres.New(postgres.Config{Conn: sqlDB})
 				slaveDialector = append(slaveDialector, postgres.New(postgres.Config{Conn: sqlDB}))

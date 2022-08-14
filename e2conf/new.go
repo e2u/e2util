@@ -54,9 +54,6 @@ func New(input *InitConfigInput) *Config {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	fmt.Printf("> env: %s\n", env)
-	fmt.Printf("> env search-path: %s\n", searchPath)
-	fmt.Printf("> env config: %s\n", configFile)
 
 	if input != nil {
 		if len(input.Env) == 0 {
@@ -82,6 +79,9 @@ func New(input *InitConfigInput) *Config {
 	}
 
 	filename := input.ConfigName + ".toml"
+	fmt.Printf("> env: %s\n", env)
+	fmt.Printf("> env search-path: %s\n", searchPath)
+	fmt.Printf("> env config: %s\n", configFile)
 	fmt.Printf("> config file=%v\n", filename)
 
 	if f, err := input.ConfigFs.Open(filename); err == nil {
