@@ -1,8 +1,8 @@
 // 併發執行
 // 使用範例
-//package main
+// package main
 //
-//import (
+// import (
 //	"fmt"
 //	"github.com/e2u/e2util/e2crypto"
 //	"sync"

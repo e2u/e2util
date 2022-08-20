@@ -18,7 +18,7 @@ import (
 // 上述代碼將可從命令行參數 --param-name=xxxxx 或環境變量 PARAM_NAME=xxxxx 取值
 
 func convertEnvKey(key string) string {
-	return strings.ToUpper(strings.Replace(key, "-", "_", -1))
+	return strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
 }
 
 // EnvStringVar 从命令行参数或环环境变量取参数,优先取环境变量值
@@ -52,7 +52,6 @@ func EnvBoolVar(p *bool, key string, defaultVal bool, usage string) {
 
 // EnvIntVar 从命令行参数或环环境变量取参数,优先取环境变量值
 func EnvIntVar(p *int, key string, defaultVal int, usage string) {
-
 	if v, ok := os.LookupEnv(convertEnvKey(key)); ok && v != "" {
 		if ev, err := strconv.Atoi(v); err == nil {
 			*p = ev

@@ -19,7 +19,7 @@ func New(cfg aws.Config, optFns ...func(*s3.Options)) *S3 {
 	}
 }
 
-//func (s *S3) instance() *s3.Client {
+// func (s *S3) instance() *s3.Client {
 //	return s.client
 //}
 
