@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/e2u/e2util/e2hash/e2md5"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
 	gormlogger "gorm.io/gorm/logger"
@@ -21,7 +22,9 @@ import (
 	"gorm.io/gorm"
 )
 
-var txDBOncePG sync.Once
+// var txDBOncePG sync.Once
+
+var txDBOncePG sync.Map
 
 type Connect struct {
 	*Config
@@ -98,10 +101,12 @@ func New(cfg *Config) *Connect {
 	case "postgres":
 		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
 		if cfg.EnableTxDB {
-			txDBOncePG.Do(func() {
-				txdb.Register("txdb", "pgx", cfg.Writer)
-			})
-			if sqlDB, err := sql.Open("txdb", uuid.NewString()); err == nil {
+			txdbKey := e2md5.MD5HexString([]byte(cfg.Writer))
+			if _, ok := txDBOncePG.Load(txdbKey); !ok {
+				txdb.Register(txdbKey, "pgx", cfg.Writer)
+				txDBOncePG.Store(txdbKey, true)
+			}
+			if sqlDB, err := sql.Open(txdbKey, uuid.NewString()); err == nil {
 				primaryDialector = postgres.New(postgres.Config{Conn: sqlDB})
 				slaveDialector = append(slaveDialector, postgres.New(postgres.Config{Conn: sqlDB}))
 			} else {
