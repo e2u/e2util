@@ -1,6 +1,6 @@
 module github.com/e2u/e2util
 
-go 1.19
+go 1.20
 
 require (
 	github.com/DATA-DOG/go-txdb v0.1.5
