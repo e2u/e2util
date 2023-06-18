@@ -15,9 +15,12 @@ import (
 )
 
 type Option struct {
-	Root          string
-	DisabledPprof bool
-	Engine        *gin.Engine
+	Root             string
+	DisabledPprof    bool
+	PprofPathPrefix  string
+	DisableHealth    bool
+	HealthPathPrefix string
+	Engine           *gin.Engine
 }
 
 func DefaultEngine(opt *Option) *gin.Engine {
@@ -39,13 +42,16 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			SkipPaths: []string{opt.Root + "/_health", "/_health"},
 		}))
 
-		hg.GET("/_health", func(c *gin.Context) {
-			c.String(http.StatusOK, "OK")
-		})
+		if !opt.DisableHealth {
+			hg.GET(opt.HealthPathPrefix+"/_health", func(c *gin.Context) {
+				c.String(http.StatusOK, "OK")
+			})
 
-		hg.HEAD("/_health", func(c *gin.Context) {
-			c.Status(http.StatusOK)
-		})
+			hg.HEAD(opt.HealthPathPrefix+"/_health", func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+		}
+
 	}
 
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
@@ -73,12 +79,12 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			pprofUrl := fmt.Sprintf("http://127.0.0.1:%d/debug/pprof", port)
 			logrus.Info(pprofUrl)
 
-			router.GET(opt.Root+"/pprof-info", func(c *gin.Context) {
+			router.GET(opt.PprofPathPrefix+"/pprof-info", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{
 					"pprof_url": pprofUrl,
 					"command": []string{
 						fmt.Sprintf("ssh -N -L %d:127.0.0.1:%d <ssh-host>", port, port),
-						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/debug/pprof/profile -seconds 30", port),
+						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/%s/debug/pprof/profile -seconds 30", opt.PprofPathPrefix, port),
 					},
 				})
 			})

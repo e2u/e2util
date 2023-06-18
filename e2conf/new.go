@@ -4,6 +4,8 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
+	"path/filepath"
 
 	"github.com/e2u/e2util/e2conf/cache/e2redis"
 	"github.com/e2u/e2util/e2db"
@@ -60,7 +62,7 @@ func New(input *InitConfigInput) *Config {
 			input.Env = env
 		}
 		if len(input.AddConfigPath) == 0 {
-			input.AddConfigPath = []string{".", "./etc", "./conf", "./config"}
+			input.AddConfigPath = []string{".", "./etc", "./conf", "./config", "./cfg"}
 		}
 		if len(input.ConfigName) == 0 {
 			input.ConfigName = "app-" + env
@@ -68,7 +70,7 @@ func New(input *InitConfigInput) *Config {
 	} else {
 		input = &InitConfigInput{
 			Env:           env,
-			AddConfigPath: []string{".", "./etc", "./conf", "./config"},
+			AddConfigPath: []string{".", "./etc", "./conf", "./config", "./cfg"},
 			ConfigName:    "app-" + env,
 		}
 	}
@@ -84,9 +86,22 @@ func New(input *InitConfigInput) *Config {
 	fmt.Printf("> env config: %s\n", configFile)
 	fmt.Printf("> config file=%v\n", filename)
 
+	// check embed fs path
+	for _, ap := range input.AddConfigPath {
+		f, err := input.ConfigFs.Open(filepath.Join(ap, filename))
+		if err == nil {
+			if fst, err := f.Stat(); err == nil && fst.Size() > 0 {
+				filename = filepath.Join(ap, filename)
+			}
+			_ = f.Close()
+		}
+	}
+
 	if f, err := input.ConfigFs.Open(filename); err == nil {
 		fmt.Printf("> load from embed fs, file name=%v\n", filename)
-		defer f.Close()
+		defer func(f fs.File) {
+			_ = f.Close()
+		}(f)
 		v.SetConfigFile(filename)
 		if err := v.ReadConfig(f); err != nil {
 			panic(fmt.Errorf("fatal error config file: %w", err))
