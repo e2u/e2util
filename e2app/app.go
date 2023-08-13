@@ -4,11 +4,11 @@ import (
 	"embed"
 	"html/template"
 	"io"
-	"io/fs"
 	"log/slog"
 
 	"github.com/e2u/e2util/e2conf"
 	"github.com/e2u/e2util/e2db"
+	"github.com/e2u/e2util/e2template"
 )
 
 type FS struct {
@@ -46,16 +46,9 @@ func New(cfg *e2conf.Config, opt *Option) *Application {
 			if opt == nil || opt.TemplateFs == nil {
 				return nil
 			}
-			tfs, _ := fs.Sub(opt.TemplateFs.FS, opt.TemplateFs.SubDir)
-			tmpl := template.New("")
-			if err := fs.WalkDir(tfs, ".", func(path string, d fs.DirEntry, err error) error {
-				if !d.IsDir() {
-					data, _ := fs.ReadFile(tfs, path)
-					tmpl, _ = tmpl.New(path).Parse(string(data))
-				}
-				return err
-			}); err != nil {
-				slog.Error("walk template dir error", "error", err)
+			tmpl, err := e2template.FromEmbedFS(&opt.TemplateFs.FS, opt.TemplateFs.SubDir)
+			if err != nil {
+				slog.Error("parse templates", "error", err)
 			}
 			return tmpl
 		}(),
