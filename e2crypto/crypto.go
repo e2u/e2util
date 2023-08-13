@@ -33,6 +33,9 @@ func RandomBytes(n int) []byte {
 
 // RandomUint 生成一個介於 min 和 max 之間的隨機數
 func RandomUint(min, max int64) int64 {
+	if min < max {
+		min, max = max, min
+	}
 	nb, err := rand.Int(rand.Reader, big.NewInt(max-min+1))
 	if err != nil {
 		return 0
