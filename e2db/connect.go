@@ -4,16 +4,15 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 	"sync"
 
+	"github.com/DATA-DOG/go-txdb"
 	"github.com/e2u/e2util/e2hash/e2md5"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
-	gormlogger "gorm.io/gorm/logger"
-
-	"github.com/DATA-DOG/go-txdb"
 
 	"github.com/e2u/e2util/e2model"
 	"github.com/sirupsen/logrus"
@@ -41,7 +40,8 @@ type Config struct {
 	*gorm.Config
 	Writer            string
 	Reader            []string
-	LogLevel          gormlogger.LogLevel
+	DBLogLevel        string
+	LogAdapter        string
 	Driver            string
 	DisableAutoReport bool
 	EnableTxDB        bool
@@ -55,8 +55,7 @@ func New(cfg *Config) *Connect {
 	conn := &Connect{
 		Config: cfg,
 	}
-	log := NewLogger()
-	log.LogLevel = cfg.LogLevel
+	log := NewLogger(cfg.DBLogLevel, cfg.LogAdapter)
 
 	if cfg.Config == nil {
 		cfg.Config = &gorm.Config{
@@ -164,7 +163,6 @@ func (c *Connect) RW(opts ...*Option) *gorm.DB {
 	if len(opts) > 0 {
 		o = opts[0]
 	}
-
 	if o.Debug || c.EnableDebug {
 		return c.db.Debug()
 	}
@@ -225,4 +223,18 @@ func (c *Connect) DebugRW() *gorm.DB {
 
 func (c *Connect) DebugRO() *gorm.DB {
 	return c.RO().Debug()
+}
+
+func (c *Connect) AutoMigrate(dst ...interface{}) {
+	if err := c.DebugRW().AutoMigrate(dst...); err != nil {
+		slog.Error("gorm auto migrate model error", "error", err, "model", dst)
+	}
+}
+
+func (c *Connect) CreateSchema(schemas ...string) {
+	for _, schema := range schemas {
+		if err := c.DebugRW().Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)).Error; err != nil {
+			slog.Error("gorm create schema error", "error", err, "schema", schema)
+		}
+	}
 }

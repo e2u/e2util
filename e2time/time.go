@@ -1,6 +1,10 @@
 package e2time
 
-import "time"
+import (
+	"time"
+
+	"github.com/e2u/e2util/e2crypto"
+)
 
 func MustParse(format, value string) time.Time {
 	t, err := time.Parse(format, value)
@@ -20,4 +24,10 @@ func AddDay(t time.Time, days int) time.Time {
 
 func TimePointer(t time.Time) *time.Time {
 	return &t
+}
+
+func SleepRandom(min time.Duration, max time.Duration) time.Duration {
+	rn := time.Duration(e2crypto.RandomUint(int64(min), int64(max)))
+	time.Sleep(rn)
+	return rn
 }

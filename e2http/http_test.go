@@ -17,8 +17,8 @@ func TestBuilderGetHtml(t *testing.T) {
 	var buf bytes.Buffer
 	r := Builder(context.TODO()).
 		URL("https://www.apache.org").
-		Run().
-		Write(&buf)
+		Write(&buf).
+		Do()
 
 	assert.Equal(t, len(r.Errors()), 0)
 	assert.Equal(t, r.StatusCode(), http.StatusOK)
@@ -62,10 +62,9 @@ func TestBuilderJson(t *testing.T) {
 		UserAgent("http-client/0.1").
 		RemoveHeader("Accept-Encoding").
 		RemoveHeader("AAAA").
-		Run()
+		Do()
 
 	fmt.Println(dump.String())
-	fmt.Println(r.Errors())
 	assert.Equal(t, len(r.Errors()), 0)
 	assert.Equal(t, r.StatusCode(), http.StatusOK)
 	assert.Contains(t, r.BodyString(), "https")

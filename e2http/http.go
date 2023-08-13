@@ -13,7 +13,7 @@ import (
 	"github.com/e2u/e2util/e2json"
 )
 
-type Request struct {
+type Context struct {
 	cli            *http.Client
 	ctx            context.Context
 	url            *url.URL
@@ -32,16 +32,16 @@ type Request struct {
 	dumpBody       bool
 }
 
-func Builder(ctx context.Context) *Request {
-	return &Request{
-		cli:        http.DefaultClient,
+func Builder(ctx context.Context) *Context {
+	return &Context{
+		cli:        &http.Client{},
 		ctx:        ctx,
 		method:     http.MethodGet,
 		reqHeaders: make(map[string][]string),
 	}
 }
 
-func (r *Request) URL(u string) *Request {
+func (r *Context) URL(u string) *Context {
 	if v, err := url.Parse(u); err == nil {
 		r.url = v
 	} else {
@@ -51,17 +51,17 @@ func (r *Request) URL(u string) *Request {
 }
 
 // Proxy set proxy, e.g. socks5://127.0.0.1:1080, http://127.0.0.1:3128
-func (r *Request) Proxy(p string) *Request {
+func (r *Context) Proxy(p string) *Context {
 	proxyUrl, err := url.Parse(p)
 	if err != nil {
 		r.appendErr(err)
 		return r
 	}
-	http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	r.cli.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
 	return r
 }
 
-func (r *Request) DumpRequest(w io.Writer, body bool) *Request {
+func (r *Context) DumpRequest(w io.Writer, body bool) *Context {
 	if r.req != nil {
 		if b, err := httputil.DumpRequestOut(r.req, body); err == nil {
 			_, _ = io.Copy(w, bytes.NewReader(b))
@@ -75,34 +75,34 @@ func (r *Request) DumpRequest(w io.Writer, body bool) *Request {
 	return r
 }
 
-func (r *Request) Method(m string) {
+func (r *Context) Method(m string) {
 	r.method = m
 }
 
-func (r *Request) Post(rd io.Reader) *Request {
+func (r *Context) Post(rd io.Reader) *Context {
 	return r.postForm(http.MethodPost, rd)
 }
 
-func (r *Request) Put(rd io.Reader) *Request {
+func (r *Context) Put(rd io.Reader) *Context {
 	return r.postForm(http.MethodPut, rd)
 }
 
-func (r *Request) postForm(method string, rd io.Reader) *Request {
+func (r *Context) postForm(method string, rd io.Reader) *Context {
 	r.Method(method)
 	r.ContentType("application/x-www-form-urlencoded")
 	r.reqBody = rd
 	return r
 }
 
-func (r *Request) PostMultipart(values map[string]io.Reader) *Request {
+func (r *Context) PostMultipart(values map[string]io.Reader) *Context {
 	return r.postMultipart(http.MethodPost, values)
 }
 
-func (r *Request) PutMultipart(values map[string]io.Reader) *Request {
+func (r *Context) PutMultipart(values map[string]io.Reader) *Context {
 	return r.postMultipart(http.MethodPut, values)
 }
 
-func (r *Request) postMultipart(method string, values map[string]io.Reader) *Request {
+func (r *Context) postMultipart(method string, values map[string]io.Reader) *Context {
 	r.Method(method)
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
@@ -138,39 +138,39 @@ func (r *Request) postMultipart(method string, values map[string]io.Reader) *Req
 	return r
 }
 
-func (r *Request) SetHeaders(h map[string]string) *Request {
+func (r *Context) SetHeaders(h map[string]string) *Context {
 	for k, v := range h {
 		r.reqHeaders.Set(k, v)
 	}
 	return r
 }
 
-func (r *Request) UserAgent(u string) *Request {
+func (r *Context) UserAgent(u string) *Context {
 	r.reqHeaders.Set("User-Agent", u)
 	return r
 }
 
-func (r *Request) ContentType(c string) *Request {
+func (r *Context) ContentType(c string) *Context {
 	r.reqHeaders.Set("Content-Type", c)
 	return r
 }
 
-func (r *Request) AddHeader(key, value string) *Request {
+func (r *Context) AddHeader(key, value string) *Context {
 	r.reqHeaders.Add(key, value)
 	return r
 }
 
-func (r *Request) SetHeader(key, value string) *Request {
+func (r *Context) SetHeader(key, value string) *Context {
 	r.reqHeaders.Set(key, value)
 	return r
 }
 
-func (r *Request) RemoveHeader(key string) *Request {
+func (r *Context) RemoveHeader(key string) *Context {
 	r.delHeaders = append(r.delHeaders, key)
 	return r
 }
 
-func (r *Request) ToJSON(t any) *Request {
+func (r *Context) ToJSON(t any) *Context {
 	if len(r.respBody) != 0 {
 		if err := e2json.MustFromJSONByte(r.respBody, t); err != nil {
 			r.appendErr(err)
@@ -181,7 +181,7 @@ func (r *Request) ToJSON(t any) *Request {
 	return r
 }
 
-func (r *Request) Write(w io.Writer) *Request {
+func (r *Context) Write(w io.Writer) *Context {
 	if len(r.respBody) != 0 {
 		_, _ = io.Copy(w, bytes.NewReader(r.respBody))
 	} else {
@@ -190,7 +190,8 @@ func (r *Request) Write(w io.Writer) *Request {
 	return r
 }
 
-func (r *Request) Run() *Request {
+func (r *Context) Do() *Context {
+
 	if req, err := http.NewRequestWithContext(r.ctx, r.method, r.url.String(), r.reqBody); err == nil {
 		r.req = req
 	} else {
@@ -226,43 +227,51 @@ func (r *Request) Run() *Request {
 	if r.toJsonPointer != nil {
 		if err := e2json.MustFromJSONByte(r.respBody, r.toJsonPointer); err != nil {
 			r.appendErr(err)
+			return r
 		}
 	}
 
 	if r.outWriter != nil {
-		_, _ = io.Copy(r.outWriter, bytes.NewReader(r.respBody))
+		if _, err := io.Copy(r.outWriter, bytes.NewReader(r.respBody)); err != nil {
+			r.appendErr(err)
+			return r
+		}
 	}
 
 	if r.dumpReqWriter != nil {
 		if b, err := httputil.DumpRequestOut(r.req, r.dumpBody); err == nil {
-			_, _ = io.Copy(r.dumpReqWriter, bytes.NewReader(b))
+			if _, err := io.Copy(r.dumpReqWriter, bytes.NewReader(b)); err != nil {
+				r.appendErr(err)
+				return r
+			}
 		} else {
 			r.appendErr(err)
+			return r
 		}
 	}
 	return r
 }
 
-func (r *Request) StatusCode() int {
+func (r *Context) StatusCode() int {
 	return r.respStatusCode
 }
 
-func (r *Request) Headers() http.Header {
+func (r *Context) Headers() http.Header {
 	return r.respHeaders
 }
 
-func (r *Request) Body() []byte {
+func (r *Context) Body() []byte {
 	return r.respBody
 }
 
-func (r *Request) BodyString() string {
+func (r *Context) BodyString() string {
 	return string(r.respBody)
 }
 
-func (r *Request) Errors() []error {
-	return r.errs
+func (r *Context) appendErr(err error) {
+	r.errs = append(r.errs, err)
 }
 
-func (r *Request) appendErr(err error) {
-	r.errs = append(r.errs, err)
+func (r *Context) Errors() []error {
+	return r.errs
 }

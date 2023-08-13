@@ -24,7 +24,7 @@ type HttpPatch struct {
 	Extension interface{} `json:"extension,omitempty"` // extension values
 }
 
-// AlowOp 检查当前请求是否在允许操作列表中
+// AllowOp 检查当前请求是否在允许操作列表中
 func (h *HttpPatch) AllowOp(allows []string) bool {
 	return e2array.IncludeString(allows, h.Op)
 }

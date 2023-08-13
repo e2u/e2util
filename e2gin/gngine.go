@@ -1,10 +1,14 @@
 package e2gin
 
 import (
+	"embed"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	_ "net/http/pprof"
+	"net/url"
 	"sync"
 	"time"
 
@@ -15,12 +19,20 @@ import (
 )
 
 type Option struct {
-	Root             string
-	DisabledPprof    bool
-	PprofPathPrefix  string
-	DisableHealth    bool
-	HealthPathPrefix string
-	Engine           *gin.Engine
+	Root                   string
+	StaticFiles            *StaticFiles
+	DisabledPprof          bool
+	PprofPathPrefix        string
+	DisableHealth          bool
+	SkipLogPaths           []string
+	HealthPathPrefix       string
+	Engine                 *gin.Engine
+	NoRouteProxyBackendURL string
+}
+
+type StaticFiles struct {
+	embed.FS
+	SubDir string // example: "web/build"
 }
 
 func DefaultEngine(opt *Option) *gin.Engine {
@@ -96,5 +108,39 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		})
 	}()
 
+	router.NoRoute(func(c *gin.Context) {
+		var send bool
+		if opt.NoRouteProxyBackendURL != "" {
+			proxyURL, _ := url.Parse(opt.NoRouteProxyBackendURL)
+			if hostPortActive(proxyURL.Host) {
+				proxy := httputil.NewSingleHostReverseProxy(proxyURL)
+				proxy.FlushInterval = time.Millisecond * 100
+				proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+					slog.Error("Error proxying request", "error", err)
+				}
+				proxy.ModifyResponse = func(resp *http.Response) error {
+					if resp.StatusCode == http.StatusOK {
+						resp.Header.Add("X-Content-Source", "proxy")
+						send = true
+					}
+					return nil
+				}
+				proxy.ServeHTTP(c.Writer, c.Request)
+			}
+		}
+
+		if opt.StaticFiles != nil && !send {
+			c.Header("X-Content-Source", "fs")
+			WebContent(c, opt.StaticFiles.FS, opt.StaticFiles.SubDir)
+		}
+	})
+
 	return router
+}
+
+func hostPortActive(host string) bool {
+	if _, err := net.DialTimeout("tcp", host, 100*time.Millisecond); err == nil {
+		return true
+	}
+	return false
 }

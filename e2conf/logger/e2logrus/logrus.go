@@ -19,6 +19,18 @@ type Config struct {
 	LogLevel     string // 配置日志输出级别: trace,debug,info,warn,error
 	MaxAge       int    // 日志保留天数
 	RotationTime int    // 日志分割时间,单位秒,默认86400秒
+	LogFormat    string // 格式, json | text, default: json
+	AddSource    bool   // false slog only
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Output:       "stdout",
+		LogLevel:     "debug",
+		MaxAge:       365,
+		RotationTime: 86400,
+		LogFormat:    "json",
+	}
 }
 
 // NewWriter 返回一个 writer,可以在 logrus 中使用
@@ -30,7 +42,6 @@ func NewWriter(config *Config) (io.Writer, error) {
 		return os.Stderr, nil
 	}
 
-	// TODO 除了标准输出外，先支持文件输出
 	if !strings.HasPrefix(config.Output, `file://`) {
 		return os.Stdout, nil
 	}

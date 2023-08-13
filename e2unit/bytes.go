@@ -9,7 +9,7 @@ import (
 )
 
 // IEC Sizes.
-// kibis of bits
+// ibis of bits
 const (
 	Byte = 1 << (iota * 10)
 	KiByte
@@ -80,7 +80,7 @@ func humanateBytes(s uint64, base float64, sizes []string) string {
 	return fmt.Sprintf(f, val, suffix)
 }
 
-// Bytes produces a human readable representation of an SI size.
+// Bytes produces a human-readable representation of an SI size.
 //
 // See also: ParseBytes.
 //
@@ -90,7 +90,7 @@ func Bytes(s uint64) string {
 	return humanateBytes(s, 1000, sizes)
 }
 
-// IBytes produces a human readable representation of an IEC size.
+// IBytes produces a human-readable representation of an IEC size.
 //
 // See also: ParseBytes.
 //

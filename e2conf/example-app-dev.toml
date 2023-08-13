@@ -1,0 +1,41 @@
+[ORM]
+Writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
+Reader = [
+    "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
+]
+
+[ORM1]
+#  extract config, in code
+# 	var orm1 e2db.Config
+#	if err := app.App.Viper.UnmarshalKey("ORM1", &orm1); err != nil {
+#		slog.Error("unmarshal key error", "error", err)
+#	}
+#	slog.Info("ORM1 config", "config", orm1)
+#
+Writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
+Reader = [
+    "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
+]
+
+DBLogLevel = "Info" # Silent, Info, Warn, Error,
+LogAdapter = "logrus" # logrus, slog
+
+Driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3
+DisableAutoReport = false
+EnableTxDB = false
+EnableDebug = false
+
+[Http]
+Address = "0.0.0.0"
+Port = 8000
+
+[Logger]
+Output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
+LogLevel = "debug" # trace, debug, info, warn, error
+LogFormat = "json" # json, text
+AddSource = false # slog only
+
+#[General]
+#skip_authorize = true
+#upload_file_path = "/tmp/uploads"
+
