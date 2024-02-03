@@ -17,7 +17,9 @@ type FS struct {
 }
 
 type Option struct {
-	TemplateFs *FS
+	TemplateFs   *FS
+	TemplatePath string
+	TemplateFunc template.FuncMap
 }
 
 type Application struct {
@@ -27,6 +29,7 @@ type Application struct {
 }
 
 func (a *Application) ExecuteTemplate(wr io.Writer, name string, data any) error {
+
 	return a.template.ExecuteTemplate(wr, name, data)
 }
 
@@ -43,14 +46,28 @@ func New(cfg *e2conf.Config, opt *Option) *Application {
 		Connect: e2db.New(cfg.Orm),
 		Config:  cfg,
 		template: func() *template.Template {
-			if opt == nil || opt.TemplateFs == nil {
+			if opt == nil {
 				return nil
 			}
-			tmpl, err := e2template.FromEmbedFS(&opt.TemplateFs.FS, opt.TemplateFs.SubDir)
-			if err != nil {
-				slog.Error("parse templates", "error", err)
+
+			if opt.TemplatePath != "" {
+				slog.Info("template from path")
+				tmpl, err := e2template.FromPath(opt.TemplatePath, opt.TemplateFunc)
+				if err != nil {
+					slog.Error("parse templates", "error", err)
+				}
+				return tmpl
 			}
-			return tmpl
+
+			if opt.TemplateFs != nil {
+				slog.Info("template from FS")
+				tmpl, err := e2template.FromEmbedFS(&opt.TemplateFs.FS, opt.TemplateFs.SubDir, opt.TemplateFunc)
+				if err != nil {
+					slog.Error("parse templates", "error", err)
+				}
+				return tmpl
+			}
+			return nil
 		}(),
 	}
 	return a

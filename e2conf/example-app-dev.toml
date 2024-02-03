@@ -17,6 +17,10 @@ Reader = [
     "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
 ]
 
+[SQLITE]
+Writer = "file:db?mode=memory&cache=shared"
+Reader = ["file:db?mode=memory&cache=shared"]
+
 DBLogLevel = "Info" # Silent, Info, Warn, Error,
 LogAdapter = "logrus" # logrus, slog
 

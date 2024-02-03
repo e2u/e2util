@@ -109,3 +109,22 @@ func GetDefault[T comparable](arr []T, index int, defaultValue T) T {
 	}
 	return defaultValue
 }
+
+func HasConsecutiveNumbers[T int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64](nfs []T) bool {
+	nums := make([]T, len(nfs))
+	for idx := range nfs {
+		nums[idx] = nfs[idx]
+	}
+	if len(nums) < 2 {
+		return false
+	}
+	sort.Slice(nums, func(i, j int) bool {
+		return nums[i] < nums[j]
+	})
+	for i := 1; i < len(nums); i++ {
+		if nums[i]-nums[i-1] == 1 {
+			return true
+		}
+	}
+	return false
+}

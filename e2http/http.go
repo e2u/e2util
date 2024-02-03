@@ -4,25 +4,31 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"slices"
 
 	"github.com/e2u/e2util/e2json"
 )
 
 type Context struct {
-	cli            *http.Client
-	ctx            context.Context
-	url            *url.URL
-	method         string
-	reqHeaders     http.Header
-	req            *http.Request
-	reqBody        io.Reader
-	respBody       []byte
-	respHeaders    http.Header
+	cli        *http.Client
+	ctx        context.Context
+	url        *url.URL
+	method     string
+	reqHeaders http.Header
+	reqCookies []*http.Cookie
+	req        *http.Request
+	reqBody    io.Reader
+
+	respBody    []byte
+	respHeaders http.Header
+	respCookies []*http.Cookie
+
 	delHeaders     []string
 	respStatusCode int
 	errs           []error
@@ -47,6 +53,13 @@ func (r *Context) URL(u string) *Context {
 	} else {
 		r.appendErr(err)
 	}
+	return r
+}
+func (r *Context) SetCookies(c []*http.Cookie) *Context {
+	if r.respCookies == nil {
+		r.respCookies = make([]*http.Cookie, len(c))
+	}
+	r.respCookies = slices.Clone(c)
 	return r
 }
 
@@ -215,7 +228,17 @@ func (r *Context) Do() *Context {
 	}(resp.Body)
 
 	r.respStatusCode = resp.StatusCode
-	r.respHeaders = resp.Header
+	if r.respHeaders == nil {
+		r.respHeaders = make(http.Header, len(resp.Header))
+	}
+	maps.Copy(r.respHeaders, resp.Header)
+
+	if r.respCookies == nil {
+		r.respCookies = make([]*http.Cookie, len(resp.Cookies()))
+	}
+	r.respCookies = slices.Clone(resp.Cookies())
+
+	//resp.Cookies()
 
 	if b, err := io.ReadAll(resp.Body); err == nil {
 		r.respBody = b
@@ -274,4 +297,8 @@ func (r *Context) appendErr(err error) {
 
 func (r *Context) Errors() []error {
 	return r.errs
+}
+
+func (r *Context) Cookies() []*http.Cookie {
+	return r.respCookies
 }
