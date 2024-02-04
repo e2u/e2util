@@ -28,7 +28,6 @@ type logger struct {
 }
 
 func NewLogger(level string, adapter string) *logger {
-
 	ll := func(lvs string) gormlogger.LogLevel {
 		switch strings.ToLower(lvs) {
 		case "Silent":
@@ -127,5 +126,4 @@ func (l *logger) Trace(ctx context.Context, begin time.Time, fc func() (string, 
 	} else {
 		slog.DebugContext(ctx, fmt.Sprintf("%s [%s]", sql, elapsed), "fields", fields)
 	}
-
 }

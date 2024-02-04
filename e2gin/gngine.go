@@ -63,7 +63,6 @@ func DefaultEngine(opt *Option) *gin.Engine {
 				c.Status(http.StatusOK)
 			})
 		}
-
 	}
 
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))

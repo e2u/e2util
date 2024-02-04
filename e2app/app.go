@@ -29,7 +29,6 @@ type Application struct {
 }
 
 func (a *Application) ExecuteTemplate(wr io.Writer, name string, data any) error {
-
 	return a.template.ExecuteTemplate(wr, name, data)
 }
 

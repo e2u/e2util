@@ -218,7 +218,7 @@ func unmarshalAppConfig(v *viper.Viper) {
 	if err := v.Unmarshal(&appConf); err != nil {
 		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
-	//if len(v.GetStringMap("general")) > 0 {
+	// if len(v.GetStringMap("general")) > 0 {
 	//	appConf.General.PutAll(v.GetStringMap("general"))
 	//}
 }

@@ -204,7 +204,6 @@ func (r *Context) Write(w io.Writer) *Context {
 }
 
 func (r *Context) Do() *Context {
-
 	if req, err := http.NewRequestWithContext(r.ctx, r.method, r.url.String(), r.reqBody); err == nil {
 		r.req = req
 	} else {
@@ -238,7 +237,7 @@ func (r *Context) Do() *Context {
 	}
 	r.respCookies = slices.Clone(resp.Cookies())
 
-	//resp.Cookies()
+	// resp.Cookies()
 
 	if b, err := io.ReadAll(resp.Body); err == nil {
 		r.respBody = b
