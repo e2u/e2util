@@ -88,8 +88,9 @@ func (r *Context) DumpRequest(w io.Writer, body bool) *Context {
 	return r
 }
 
-func (r *Context) Method(m string) {
+func (r *Context) Method(m string) *Context {
 	r.method = m
+	return r
 }
 
 func (r *Context) Post(rd io.Reader) *Context {
