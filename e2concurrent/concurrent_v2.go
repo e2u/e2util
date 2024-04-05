@@ -2,12 +2,16 @@ package e2concurrent
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Trace struct {
 	Id       string        `json:"id,omitempty"`
+	Refer    string        `json:"refer,omitempty"`
 	StartAt  time.Time     `json:"start_at"`
 	Duration time.Duration `json:"duration,omitempty"`
 }
@@ -19,7 +23,7 @@ type Result struct {
 }
 
 type Arg struct {
-	Id    string `json:"id,omitempty"`
+	Refer string `json:"refer,omitempty"`
 	Value any    `json:"value,omitempty"`
 }
 
@@ -34,59 +38,52 @@ type Task struct {
 	Arg     Arg             `json:"arg"`
 }
 
-func ExecuteTasks(tasks []Task, maxConcurrency int, resultChan chan Result) {
-	var wg sync.WaitGroup
-	taskChan := make(chan Task, len(tasks))
+func taskWorker(uuid string, task Task, r func(resultChan Result), wg *sync.WaitGroup) {
+	ctx, cancel := context.WithTimeout(task.Ctx, task.Timeout)
+	defer cancel()
+	defer wg.Done()
 
-	// Worker goroutines
-	for i := 0; i < maxConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			worker(taskChan, resultChan)
-		}()
-	}
-
-	// Send tasks to task channel
+	startTime := time.Now()
+	localResultChan := make(chan Result, 1)
 	go func() {
-		for _, task := range tasks {
-			taskChan <- task
-		}
-		close(taskChan)
+		localResultChan <- task.Fn.Run(task.Arg)
 	}()
 
-	// Wait for all worker goroutines to finish
-	wg.Wait()
-	close(resultChan)
+	select {
+	case <-ctx.Done():
+		// Task timeout
+		r(Result{Err: ctx.Err(), Trace: Trace{
+			Id:       uuid,
+			Refer:    task.Arg.Refer,
+			StartAt:  startTime,
+			Duration: time.Since(startTime),
+		}})
+	case result := <-localResultChan:
+		// Task completed
+		result.Trace = Trace{
+			Id:       uuid,
+			Refer:    task.Arg.Refer,
+			StartAt:  startTime,
+			Duration: time.Since(startTime),
+		}
+		r(result)
+	}
+
 }
 
-func worker(taskChan <-chan Task, resultChan chan<- Result) {
-	for task := range taskChan {
-		ctx, cancel := context.WithTimeout(task.Ctx, task.Timeout)
-
-		startTime := time.Now()
-		localResultChan := make(chan Result, 1)
-		go func() {
-			localResultChan <- task.Fn.Run(task.Arg)
-		}()
-
-		select {
-		case <-ctx.Done():
-			// Task timeout
-			resultChan <- Result{Err: ctx.Err(), Trace: Trace{
-				Id:       task.Arg.Id,
-				StartAt:  startTime,
-				Duration: time.Since(startTime),
-			}}
-		case result := <-localResultChan:
-			// Task completed
-			result.Trace = Trace{
-				Id:       task.Arg.Id,
-				StartAt:  startTime,
-				Duration: time.Since(startTime),
-			}
-			resultChan <- result
-		}
-		cancel()
+func DefaultExec(ctx context.Context, tasks <-chan Task, resultFn func(r Result)) {
+	Exec(ctx, runtime.NumCPU(), tasks, resultFn)
+}
+func Exec(ctx context.Context, maxConcurrency int, tasks <-chan Task, resultFn func(r Result)) {
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, maxConcurrency)
+	for task := range tasks {
+		semaphore <- struct{}{}
+		wg.Add(1)
+		go func(t Task) {
+			defer func() { <-semaphore }()
+			taskWorker(uuid.NewString(), t, resultFn, &wg)
+		}(task)
 	}
+	wg.Wait()
 }
