@@ -67,16 +67,17 @@ func resultFunc(result Result) {
 		slog.Info("Error", "Result", result)
 	}
 }
+func tasksFunc(tasks chan<- Task) {
+	for i := 0; i < 20; i++ {
+		tasks <- newTask(i)
+	}
+	//for {
+	//	time.Sleep(1 * time.Second)
+	//	tasks <- newTask(time.Now().Second())
+	//}
+}
 
-func Test_a02(t *testing.T) {
+func Test_a03(t *testing.T) {
 	ctx := context.Background()
-	taskChan := make(chan Task)
-	go func() {
-		for i := 0; i < 20; i++ {
-			taskChan <- newTask(i)
-		}
-		close(taskChan)
-	}()
-
-	DefaultExec(ctx, taskChan, resultFunc)
+	DefaultExec(ctx, tasksFunc, resultFunc)
 }

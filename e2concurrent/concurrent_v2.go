@@ -27,14 +27,14 @@ type Arg struct {
 	Value any    `json:"value,omitempty"`
 }
 
-type TaskFunc interface {
+type WorkFunc interface {
 	Run(arg Arg) Result
 }
 
 type Task struct {
 	Ctx     context.Context `json:"ctx,omitempty"`
 	Timeout time.Duration   `json:"timeout,omitempty"`
-	Fn      TaskFunc        `json:"fn,omitempty"`
+	Fn      WorkFunc        `json:"fn,omitempty"`
 	Arg     Arg             `json:"arg"`
 }
 
@@ -71,13 +71,28 @@ func taskWorker(uuid string, task Task, r func(resultChan Result), wg *sync.Wait
 
 }
 
-func DefaultExec(ctx context.Context, tasks <-chan Task, resultFn func(r Result)) {
-	Exec(ctx, runtime.NumCPU(), tasks, resultFn)
+func DefaultExec(ctx context.Context, taskFn func(tasks chan<- Task), resultFn func(r Result)) {
+	Exec(ctx, runtime.NumCPU(), taskFn, resultFn)
 }
-func Exec(ctx context.Context, maxConcurrency int, tasks <-chan Task, resultFn func(r Result)) {
+
+func Exec(ctx context.Context, maxConcurrency int, taskFn func(tasks chan<- Task), resultFn func(r Result)) {
 	var wg sync.WaitGroup
+	wg.Add(1)
+
+	tasksChan := make(chan Task)
+
+	go func() {
+		defer wg.Done()
+		taskFn(tasksChan)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(tasksChan)
+	}()
+
 	semaphore := make(chan struct{}, maxConcurrency)
-	for task := range tasks {
+	for task := range tasksChan {
 		semaphore <- struct{}{}
 		wg.Add(1)
 		go func(t Task) {
@@ -85,5 +100,5 @@ func Exec(ctx context.Context, maxConcurrency int, tasks <-chan Task, resultFn f
 			taskWorker(uuid.NewString(), t, resultFn, &wg)
 		}(task)
 	}
-	wg.Wait()
+
 }
