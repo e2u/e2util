@@ -44,7 +44,7 @@ func taskWorker(uuid string, task Task, r func(resultChan Result), wg *sync.Wait
 	defer wg.Done()
 
 	startTime := time.Now()
-	localResultChan := make(chan Result, 1)
+	localResultChan := make(chan Result)
 	go func() {
 		localResultChan <- task.Fn.Run(task.Arg)
 	}()
