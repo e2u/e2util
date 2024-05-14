@@ -12,17 +12,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type DefaultApp struct {
+type DefaultEnv struct {
 	*e2db.Connect
 	*e2conf.Config
-	*e2db.Option
 }
 
-func NewDefaultApp(cfg *e2conf.Config) *DefaultApp {
-	return &DefaultApp{
+func NewDefaultEnv(cfg *e2conf.Config) *DefaultEnv {
+	return &DefaultEnv{
 		Connect: e2db.New(cfg.Orm),
 		Config:  cfg,
-		Option:  &e2db.Option{Debug: true},
 	}
 }
 
