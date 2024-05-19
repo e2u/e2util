@@ -1,6 +1,7 @@
 package e2db
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/sirupsen/logrus"
@@ -20,4 +21,14 @@ func MustGetCount(db *gorm.DB, model interface{}, query interface{}, args ...int
 		Int64: c,
 		Valid: true,
 	}
+}
+
+func SaveWithContext[T any](ctx context.Context, db *gorm.DB, model T) (T, error) {
+	dd := db.WithContext(ctx).Save(model)
+	if err := dd.Error; err != nil {
+		return model, err
+	}
+	var r T
+	dd.Scan(&r)
+	return r, nil
 }
