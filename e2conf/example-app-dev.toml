@@ -29,6 +29,11 @@ DisableAutoReport = false
 EnableTxDB = false
 EnableDebug = false
 
+[ORM1]
+Writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
+Reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
+
+
 [Http]
 Address = "0.0.0.0"
 Port = 8000

@@ -108,6 +108,13 @@ func (r *Context) postForm(method string, rd io.Reader) *Context {
 	return r
 }
 
+func (r *Context) PostJSON(rd io.Reader) *Context {
+	r.Method(http.MethodPost)
+	r.ContentType("application/json")
+	r.reqBody = rd
+	return r
+}
+
 func (r *Context) PostMultipart(values map[string]io.Reader) *Context {
 	return r.postMultipart(http.MethodPost, values)
 }
