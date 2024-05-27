@@ -11,13 +11,13 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/e2u/e2util/e2hash/e2md5"
+	"github.com/e2u/e2util/e2model"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
-
-	"github.com/e2u/e2util/e2model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
+	// csqlite "gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -70,6 +70,8 @@ func New(cfg *Config) *Connect {
 		conn.dialector = mysql.Dialector{}
 	case "sqlite", "sqlite3":
 		conn.dialector = sqlite.Dialector{}
+	case "go-sqlite":
+		conn.dialector = sqlite.Dialector{}
 	}
 
 	if conn.dialector == nil {
@@ -120,6 +122,18 @@ func New(cfg *Config) *Connect {
 			}
 		}
 	case "sqlite":
+		// file:db1?mode=memory&cache=shared
+		if cfg.EnableTxDB {
+			panic("TxDB is not support")
+		} else {
+			if cfg.Writer != "" {
+				primaryDialector = sqlite.Open(cfg.Writer)
+			}
+			for _, dns := range cfg.Reader {
+				slaveDialector = append(slaveDialector, sqlite.Open(dns))
+			}
+		}
+	case "go-sqlite":
 		// file:db1?mode=memory&cache=shared
 		if cfg.EnableTxDB {
 			panic("TxDB is not support")

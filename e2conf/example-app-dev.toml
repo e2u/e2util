@@ -24,7 +24,7 @@ Reader = ["file:db?mode=memory&cache=shared"]
 DBLogLevel = "Info" # Silent, Info, Warn, Error,
 LogAdapter = "logrus" # logrus, slog
 
-Driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3
+Driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
 DisableAutoReport = false
 EnableTxDB = false
 EnableDebug = false
