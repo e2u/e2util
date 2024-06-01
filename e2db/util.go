@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func MustGetCount(db *gorm.DB, model interface{}, query interface{}, args ...interface{}) sql.NullInt64 {
@@ -29,6 +30,6 @@ func SaveWithContext[T any](ctx context.Context, db *gorm.DB, model T) (T, error
 		return model, err
 	}
 	var r T
-	dd.Scan(&r)
+	dd.Preload(clause.Associations).Scan(&r)
 	return r, nil
 }
