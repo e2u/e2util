@@ -7,3 +7,7 @@ func MustStringValue(s *string) string {
 	}
 	return *s
 }
+
+func Val2Pointer[T any](i T) *T {
+	return &i
+}

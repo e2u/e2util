@@ -28,6 +28,8 @@ type Controller struct {
 	*template.Template
 }
 
+var FuncMap template.FuncMap
+
 func NewEmbedFsController(embedTemplates embed.FS, subDir string) *Controller {
 	if subDir == "" {
 		subDir = "templates"
@@ -38,6 +40,16 @@ func NewEmbedFsController(embedTemplates embed.FS, subDir string) *Controller {
 
 func NewController(templateFS fs.FS) *Controller {
 	tmpl := template.New("")
+
+	//defaultFuncMap := template.FuncMap{
+	//	"until": until,
+	//	"add":   add,
+	//}
+	//if FuncMap != nil && len(FuncMap) > 0 {
+	//	maps.Copy(defaultFuncMap, FuncMap)
+	//}
+	tmpl = tmpl.Funcs(FuncMap)
+
 	if err := fs.WalkDir(templateFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			data, _ := fs.ReadFile(templateFS, path)
@@ -48,6 +60,7 @@ func NewController(templateFS fs.FS) *Controller {
 		logrus.Fatalf("new controller error=%v", err)
 		return nil
 	}
+
 	return &Controller{
 		Template: tmpl,
 	}
