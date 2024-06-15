@@ -222,3 +222,7 @@ func unmarshalAppConfig(v *viper.Viper) {
 	//	appConf.General.PutAll(v.GetStringMap("general"))
 	//}
 }
+
+func (c *Config) GetStringMapStringByOS(key string) map[string]string {
+	return getStringMapStringByOS(c.Viper, key)
+}

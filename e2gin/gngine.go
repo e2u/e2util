@@ -9,7 +9,10 @@ import (
 	"net/http/httputil"
 	_ "net/http/pprof"
 	"net/url"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/contrib/ginrus"
@@ -142,4 +145,19 @@ func hostPortActive(host string) bool {
 		return true
 	}
 	return false
+}
+
+func StartAndStop(start func(), stop func()) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		fmt.Println("Server started. Press Ctrl+C to stop.")
+		start()
+	}()
+
+	<-sigChan
+	fmt.Println("Received SIGINT or SIGTERM. Shutting down...")
+	stop()
+	os.Exit(0)
+
 }

@@ -2,6 +2,7 @@ package e2json
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -120,4 +121,21 @@ func MustFromReader(r io.Reader, v interface{}) error {
 		return err
 	}
 	return MustFromJSONByte(b, v)
+}
+
+func MustToJSONPString(v interface{}, callback ...string) string {
+	j := MustToJSONString(v)
+
+	if len(callback) == 0 {
+		return fmt.Sprintf(`callback(%s)`, j)
+	}
+	return j
+}
+
+func MustToSecureJSONString(v interface{}, prefix ...string) string {
+	j := MustToJSONString(v)
+	if len(prefix) == 0 {
+		return fmt.Sprintf(`while(1);%s`, j)
+	}
+	return j
 }

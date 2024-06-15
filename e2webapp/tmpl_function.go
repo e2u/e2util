@@ -7,7 +7,3 @@ func until(start, end int) []int {
 	}
 	return result
 }
-
-func add(i, j int) int {
-	return i + j
-}

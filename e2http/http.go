@@ -3,6 +3,7 @@ package e2http
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"maps"
 	"mime/multipart"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/e2u/e2util/e2json"
 )
@@ -55,6 +57,66 @@ func (r *Context) URL(u string) *Context {
 	}
 	return r
 }
+
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func (r *Context) SetBasicAuth(username, password string) *Context {
+	r.reqHeaders.Set("Authorization", "Basic "+basicAuth(username, password))
+	return r
+}
+
+func (r *Context) SetBearerAuth(auth string) *Context {
+	r.reqHeaders.Set("Authorization", "Bearer "+auth)
+	return r
+}
+
+func (r *Context) BasicAuth() (string, string, bool) {
+	auth := r.reqHeaders.Get("Authorization")
+	if auth == "" {
+		return "", "", false
+	}
+	return parseBasicAuth(auth)
+}
+
+func parseBasicAuth(auth string) (username, password string, ok bool) {
+	lower := func(b byte) byte {
+		if 'A' <= b && b <= 'Z' {
+			return b + ('a' - 'A')
+		}
+		return b
+	}
+
+	equalFold := func(s, t string) bool {
+		if len(s) != len(t) {
+			return false
+		}
+		for i := 0; i < len(s); i++ {
+			if lower(s[i]) != lower(t[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	const prefix = "Basic "
+	if len(auth) < len(prefix) || !equalFold(auth[:len(prefix)], prefix) {
+		return "", "", false
+	}
+	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return "", "", false
+	}
+	cs := string(c)
+	username, password, ok = strings.Cut(cs, ":")
+	if !ok {
+		return "", "", false
+	}
+	return username, password, true
+}
+
 func (r *Context) SetCookies(c []*http.Cookie) *Context {
 	if r.respCookies == nil {
 		r.respCookies = make([]*http.Cookie, len(c))
@@ -93,8 +155,13 @@ func (r *Context) Method(m string) *Context {
 	return r
 }
 
-func (r *Context) Post(rd io.Reader) *Context {
+func (r *Context) PostForm(rd io.Reader) *Context {
 	return r.postForm(http.MethodPost, rd)
+}
+
+func (r *Context) PostRaw(rd io.Reader) *Context {
+	r.reqBody = rd
+	return r
 }
 
 func (r *Context) Put(rd io.Reader) *Context {
@@ -186,6 +253,10 @@ func (r *Context) SetHeader(key, value string) *Context {
 	return r
 }
 
+func (r *Context) GetHeader(key string) string {
+	return r.reqHeaders.Get(key)
+}
+
 func (r *Context) RemoveHeader(key string) *Context {
 	r.delHeaders = append(r.delHeaders, key)
 	return r
@@ -230,6 +301,7 @@ func (r *Context) Do() *Context {
 		r.appendErr(err)
 		return r
 	}
+
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(resp.Body)
