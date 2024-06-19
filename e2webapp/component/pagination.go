@@ -1,4 +1,4 @@
-package e2webapp
+package component
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ type PaginationResult struct {
 	PageSize         int    `json:"page_size"`
 	CurrentPageCount int    `json:"current_page_count"`
 	PageNumber       int    `json:"page_number"`
-	PaginationHtml   any    `json:"pagination_html,omitempty"`
+	Html             any    `json:"html,omitempty"`
 	OrderField       string `json:"order_field,omitempty"`
 	OrderDirection   string `json:"order_direction,omitempty"`
 }
@@ -66,30 +66,28 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 
 	if len(opts) > 0 {
 		opt = opts[0]
-	}
-
-	if opt == nil {
+	} else {
 		opt = &PaginationOption{
 			PageSize:       10,
 			PageNumber:     1,
 			OrderDirection: ValueOrderByDesc,
 			OrderField:     DefaultOrderField,
 		}
-	} else {
-		if opt.PageSize <= 0 {
-			opt.PageSize = 10
-		}
-		if opt.PageNumber <= 0 {
-			opt.PageNumber = 1
-		}
+	}
 
-		if opt.OrderField == "" {
-			opt.OrderField = DefaultOrderField
-		}
+	if opt.PageSize <= 0 {
+		opt.PageSize = 10
+	}
+	if opt.PageNumber <= 0 {
+		opt.PageNumber = 1
+	}
 
-		if opt.OrderDirection == "" {
-			opt.OrderDirection = ValueOrderByDesc
-		}
+	if opt.OrderField == "" {
+		opt.OrderField = DefaultOrderField
+	}
+
+	if opt.OrderDirection == "" {
+		opt.OrderDirection = ValueOrderByDesc
 	}
 
 	if v, ok := c.GetQuery(NamePageSize); ok {
@@ -145,20 +143,33 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 		OrderField:       opt.OrderField,
 		OrderDirection:   opt.OrderDirection,
 	}
+	if totalCount <= 0 {
+		return prs, nil
+	}
 
 	var liStr []string
 	start := 1
 	if prs.PageNumber > 2 {
-		start = prs.PageNumber - 2
+		start = prs.PageNumber - 1
 	}
+
+	end := prs.PageNumber + 1
+	if prs.PageNumber <= 3 {
+		end = prs.PageNumber + 2
+	}
+
+	if prs.PageNumber == 1 && prs.TotalPages > 1 {
+		end++
+	}
+
+	if prs.PageNumber >= prs.TotalPages && prs.PageNumber > 3 {
+		start = prs.PageNumber - 3
+	}
+
 	if start < 1 {
 		start = 1
 	}
 
-	end := prs.PageNumber + 2
-	if prs.PageNumber <= 2 {
-		end = prs.PageNumber + 3
-	}
 	if end > prs.TotalPages {
 		end = prs.TotalPages
 	}
@@ -174,26 +185,22 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 	paginationTemplate := []string{
 		`<div class="pagination-wrapper">`,
 		`<ul class="pagination">`,
-		fmt.Sprintf(`<li><a href="%s">&laquo;</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: 1}, false)),
 		func() string {
-			i := prs.PageNumber - 1
-			if i < 1 {
-				i = 1
+			if prs.PageNumber > 3 {
+				return fmt.Sprintf(`<li><a href="%s">%d</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: 1}, false), 1)
 			}
-			return fmt.Sprintf(`<li><a href="%s">&lang;</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: i}, false))
+			return ""
 		}(),
 		strings.Join(liStr, "\n"),
 		func() string {
-			i := prs.PageNumber + 1
-			if i > prs.TotalPages {
-				i = prs.TotalPages
+			if prs.PageNumber < prs.TotalPages {
+				return fmt.Sprintf(`<li><a href="%s">%d</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: prs.TotalPages}, false), prs.TotalPages)
 			}
-			return fmt.Sprintf(`<li><a href="%s">&rang;</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: i}, false))
+			return ""
 		}(),
-		fmt.Sprintf(`<li><a href="%s">&raquo;</a></li>`, BuildQueryUri(c, map[string]any{NamePageNumber: prs.TotalPages}, false)),
 		`</ul>`,
 		`</div>`,
 	}
-	prs.PaginationHtml = template.HTML(strings.Join(paginationTemplate, "\n"))
+	prs.Html = template.HTML(strings.Join(paginationTemplate, "\n"))
 	return prs, nil
 }

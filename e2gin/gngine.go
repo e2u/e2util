@@ -1,6 +1,7 @@
 package e2gin
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/gin-gonic/contrib/ginrus"
 	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,9 +72,8 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	}
 
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
-	router.Use(gin.Recovery())
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
-
+	router.Use(gin.CustomRecovery(customRecovery))
 	router.RemoveExtraSlash = true
 	router.HandleMethodNotAllowed = true
 
@@ -159,5 +161,46 @@ func StartAndStop(start func(), stop func()) {
 	fmt.Println("Received SIGINT or SIGTERM. Shutting down...")
 	stop()
 	os.Exit(0)
+}
+
+func customRecovery(c *gin.Context, err any) {
+	trackId := uuid.NewString()
+	logrus.Errorf("Recovered %v", "8<"+strings.Repeat("-", 50))
+	logrus.Errorf("TrackId %v", trackId)
+	logrus.Errorf("Recovered %v", strings.Repeat("-", 50)+">8")
+
+	outputHtml := []string{
+		`<!DOCTYPE html>`,
+		`<html lang="en">`,
+		`<head><title>ServerError</title></head>`,
+		`<body>`,
+		`<h1>Internal Server Error</h1>`,
+		`<ul style="list-style: none">`,
+		fmt.Sprintf(`<li>TrackId: %s</li>`, trackId),
+		fmt.Sprintf(`<li>%s</li>`, time.Now().UTC().Format(time.RFC1123)),
+		`</ul>`,
+		`<!--`,
+		func() string {
+			var rs []string
+			rs = append(rs, "\n\n")
+			b, _ := httputil.DumpRequest(c.Request, false)
+			for _, s := range bytes.Split(b, []byte("\n")) {
+				if bytes.HasPrefix(s, []byte("Cookie")) {
+					continue
+				}
+				rs = append(rs, fmt.Sprintf("%s", string(s)))
+			}
+			rs = append(rs, "\n\n")
+			return strings.Join(rs, "\n")
+		}(),
+		`-->`,
+		`</body>`,
+		`</html>`,
+	}
+
+	c.Writer.WriteHeader(http.StatusInternalServerError)
+	c.Writer.Header().Set("X-Track-Id", trackId)
+	c.Writer.Header().Set("Content-Type", "text/html")
+	c.Writer.WriteString(strings.Join(outputHtml, ""))
 
 }

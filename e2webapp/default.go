@@ -27,9 +27,12 @@ func NewDefaultEnv(cfg *e2conf.Config) *DefaultEnv {
 
 type Controller struct {
 	*template.Template
+	templateFS fs.FS
 }
 
-var FuncMap template.FuncMap
+var (
+	FuncMap = make(template.FuncMap)
+)
 
 func NewEmbedFsController(embedTemplates embed.FS, subDir string) *Controller {
 	if subDir == "" {
@@ -113,20 +116,29 @@ func NewController(templateFS fs.FS) *Controller {
 		maps.Copy(defaultFuncMap, FuncMap)
 	}
 
-	if err := fs.WalkDir(templateFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			data, _ := fs.ReadFile(templateFS, path)
-			tmpl, _ = tmpl.New(path).Funcs(defaultFuncMap).Parse(string(data))
-		}
-		return nil
-	}); err != nil {
+	if err := parseTemplates(templateFS, tmpl, defaultFuncMap); err != nil {
 		logrus.Fatalf("new controller error=%v", err)
 		return nil
 	}
 
 	return &Controller{
-		Template: tmpl,
+		Template:   tmpl,
+		templateFS: templateFS,
 	}
+}
+
+func parseTemplates(templateFS fs.FS, tmpl *template.Template, fns template.FuncMap) error {
+	if err := fs.WalkDir(templateFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			data, _ := fs.ReadFile(templateFS, path)
+			tmpl, _ = tmpl.New(path).Funcs(fns).Parse(string(data))
+		}
+		return nil
+	}); err != nil {
+		logrus.Fatalf("new controller error=%v", err)
+		return err
+	}
+	return nil
 }
 
 func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
