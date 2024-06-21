@@ -68,7 +68,6 @@ func taskWorker(uuid string, task Task, r func(resultChan Result), wg *sync.Wait
 		}
 		r(result)
 	}
-
 }
 
 func DefaultExec(ctx context.Context, taskFn func(tasks chan<- Task), resultFn func(r Result)) {
@@ -100,5 +99,4 @@ func Exec(ctx context.Context, maxConcurrency int, taskFn func(tasks chan<- Task
 			taskWorker(uuid.NewString(), t, resultFn, &wg)
 		}(task)
 	}
-
 }

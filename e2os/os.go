@@ -40,7 +40,7 @@ func FileExists(path string) bool {
 
 func SendSignalToProcess(processName string, signal os.Signal) error {
 	getPidCmd := []string{"pgrep", processName}
-	cmd := exec.Command(getPidCmd[0], getPidCmd[1:]...)
+	cmd := exec.Command(getPidCmd[0], getPidCmd[1:]...) // #nosec G204
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Error("execute command", "error", err, "command", getPidCmd)
@@ -157,6 +157,8 @@ WantedBy=multi-user.target
 
 	var buf bytes.Buffer
 	tmpl := template.Must(template.New("systemd").Parse(tmplStr))
-	tmpl.Execute(&buf, data)
+	if err := tmpl.Execute(&buf, data); err != nil {
+		logrus.Errorf("execute template error=%v", err)
+	}
 	return "", nil
 }

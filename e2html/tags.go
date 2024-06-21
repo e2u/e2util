@@ -11,7 +11,7 @@ func Doctype(t string) string {
 }
 
 func Div(args ...any) TAG {
-	return Tag("div", args...)
+	return T("div", args...)
 }
 
 // ....

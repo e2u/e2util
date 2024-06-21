@@ -112,7 +112,7 @@ func NewController(templateFS fs.FS) *Controller {
 			return root
 		},
 	}
-	if FuncMap != nil && len(FuncMap) > 0 {
+	if len(FuncMap) > 0 {
 		maps.Copy(defaultFuncMap, FuncMap)
 	}
 

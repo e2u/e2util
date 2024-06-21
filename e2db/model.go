@@ -23,19 +23,19 @@ type Model struct {
 }
 
 // Example
-//type Extra struct {
+// type Extra struct {
 //	F1 string
 //	F2 string
 //}
-//func (t Extra) Value() (driver.Value, error) {
+// func (t Extra) Value() (driver.Value, error) {
 //	return JSONBValue(t)
 //}
 //
-//func (t *Extra) Scan(value any) error {
+// func (t *Extra) Scan(value any) error {
 //	return JSONBScan(t, value)
 //}
 
-//type Product struct {
+// type Product struct {
 //	*Model
 //	ID            string          `gorm:"column:id" json:"id"`
 //	Name          string          `gorm:"column:name" json:"name"`

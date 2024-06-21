@@ -201,6 +201,6 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 		`</ul>`,
 		`</div>`,
 	}
-	prs.Html = template.HTML(strings.Join(paginationTemplate, "\n"))
+	prs.Html = template.HTML(strings.Join(paginationTemplate, "")) // #nosec G203
 	return prs, nil
 }

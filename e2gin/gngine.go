@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	h "github.com/e2u/e2util/e2html"
 	"github.com/gin-gonic/contrib/ginrus"
 	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,7 @@ type Option struct {
 	HealthPathPrefix       string
 	Engine                 *gin.Engine
 	NoRouteProxyBackendURL string
+	DisableGzip            bool
 }
 
 type StaticFiles struct {
@@ -72,7 +74,9 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	}
 
 	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
-	router.Use(gzip.Gzip(gzip.DefaultCompression))
+	if !opt.DisableGzip {
+		router.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
 	router.Use(gin.CustomRecovery(customRecovery))
 	router.RemoveExtraSlash = true
 	router.HandleMethodNotAllowed = true
@@ -100,12 +104,12 @@ func DefaultEngine(opt *Option) *gin.Engine {
 					"pprof_url": pprofUrl,
 					"command": []string{
 						fmt.Sprintf("ssh -N -L %d:127.0.0.1:%d <ssh-host>", port, port),
-						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/%s/debug/pprof/profile -seconds 30", opt.PprofPathPrefix, port),
+						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/%s/debug/pprof/profile -seconds 30", port, opt.PprofPathPrefix),
 					},
 				})
 			})
 
-			if err := http.Serve(listener, nil); err != nil {
+			if err := http.Serve(listener, nil); err != nil { // #nosec G114
 				logrus.Infof("run pprof error: %v", err)
 				return
 			}
@@ -169,38 +173,34 @@ func customRecovery(c *gin.Context, err any) {
 	logrus.Errorf("TrackId %v", trackId)
 	logrus.Errorf("Recovered %v", strings.Repeat("-", 50)+">8")
 
-	outputHtml := []string{
-		`<!DOCTYPE html>`,
-		`<html lang="en">`,
-		`<head><title>ServerError</title></head>`,
-		`<body>`,
-		`<h1>Internal Server Error</h1>`,
-		`<ul style="list-style: none">`,
-		fmt.Sprintf(`<li>TrackId: %s</li>`, trackId),
-		fmt.Sprintf(`<li>%s</li>`, time.Now().UTC().Format(time.RFC1123)),
-		`</ul>`,
-		`<!--`,
-		func() string {
-			var rs []string
-			rs = append(rs, "\n\n")
-			b, _ := httputil.DumpRequest(c.Request, false)
-			for _, s := range bytes.Split(b, []byte("\n")) {
-				if bytes.HasPrefix(s, []byte("Cookie")) {
-					continue
-				}
-				rs = append(rs, fmt.Sprintf("%s", string(s)))
+	dumpReq := func() string {
+		var rs []string
+		rs = append(rs, "\n\n")
+		b, _ := httputil.DumpRequest(c.Request, false)
+		for _, s := range bytes.Split(b, []byte("\n")) {
+			if bytes.HasPrefix(s, []byte("Cookie")) {
+				continue
 			}
-			rs = append(rs, "\n\n")
-			return strings.Join(rs, "\n")
-		}(),
-		`-->`,
-		`</body>`,
-		`</html>`,
-	}
+			rs = append(rs, string(s))
+		}
+		rs = append(rs, "\n\n")
+		return strings.Join(rs, "\n")
+	}()
+
+	body := h.T("html", h.A{"lang": "en"},
+		h.T("head", h.T("title", h.Text("ServerError"))),
+		h.T("body",
+			h.T("h1", "Internal Server Error"),
+			h.T("ul", h.A{"style": "list-style: none"},
+				h.T("li", fmt.Sprintf("TrackId: %s", trackId)),
+				h.T("li", time.Now().UTC().Format(time.RFC1123)),
+				h.T("<!--", dumpReq),
+			),
+		),
+	).String()
 
 	c.Writer.WriteHeader(http.StatusInternalServerError)
 	c.Writer.Header().Set("X-Track-Id", trackId)
 	c.Writer.Header().Set("Content-Type", "text/html")
-	c.Writer.WriteString(strings.Join(outputHtml, ""))
-
+	_, _ = c.Writer.WriteString(h.Doctype("html") + body)
 }

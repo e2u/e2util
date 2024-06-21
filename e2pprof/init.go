@@ -27,7 +27,7 @@ func Init() {
 			pprofUrl := fmt.Sprintf("http://127.0.0.1:%d/debug/pprof", port)
 			logrus.Info(pprofUrl)
 
-			if err := http.Serve(listener, nil); err != nil {
+			if err := http.Serve(listener, nil); err != nil { // #nosec G114
 				logrus.Infof("run pprof error: %v", err)
 				return
 			}

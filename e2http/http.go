@@ -23,9 +23,9 @@ type Context struct {
 	url        *url.URL
 	method     string
 	reqHeaders http.Header
-	reqCookies []*http.Cookie
-	req        *http.Request
-	reqBody    io.Reader
+	// reqCookies []*http.Cookie
+	req     *http.Request
+	reqBody io.Reader
 
 	respBody    []byte
 	respHeaders http.Header
@@ -81,7 +81,7 @@ func (r *Context) BasicAuth() (string, string, bool) {
 	return parseBasicAuth(auth)
 }
 
-func parseBasicAuth(auth string) (username, password string, ok bool) {
+func parseBasicAuth(auth string) (string, string, bool) {
 	lower := func(b byte) byte {
 		if 'A' <= b && b <= 'Z' {
 			return b + ('a' - 'A')
@@ -110,7 +110,7 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 		return "", "", false
 	}
 	cs := string(c)
-	username, password, ok = strings.Cut(cs, ":")
+	username, password, ok := strings.Cut(cs, ":")
 	if !ok {
 		return "", "", false
 	}
