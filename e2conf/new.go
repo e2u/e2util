@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/e2u/e2util/e2conf/cache/e2redis"
+	"github.com/e2u/e2util/e2conf/e2http"
 	"github.com/e2u/e2util/e2db"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
-	"github.com/e2u/e2util/e2conf/e2http"
 	"github.com/e2u/e2util/e2conf/logger/e2logrus"
 	"github.com/e2u/e2util/e2env"
 	"github.com/spf13/viper"
@@ -25,8 +25,7 @@ type Config struct {
 	Orm    *e2db.Config
 	Redis  *e2redis.Config
 	Logger *e2logrus.Config
-	// General *e2general.Config // 这里存的 key 都会转小写字母
-	Viper *viper.Viper
+	Viper  *viper.Viper
 }
 
 var (
@@ -45,6 +44,40 @@ type InitConfigInput struct {
 	ConfigName    string
 }
 
+func init() {
+	info := `
+Important Change of the config
+****Remove these from the Config struct: 
+Http
+Orm
+Redis
+
+
+[logger] parse by e2logrus.Config
+1) LogLevel => level
+2) LogFormat => format
+3) AddSource => add_source 
+4) MaxAge => max_age
+
+
+[orm] parse by e2db.Connect
+1) DBLogLevel => log_level
+2) LogAdapter => log_adapter
+3) Driver => driver
+4) remove EnableTxDB
+5) DisableAutoReport => disable_auto_report
+6) EnableDebug => enable_debug
+7) Writer => writer
+8) Reader => reader
+
+[redis] parse by e2redis.Config
+1) Writer => writer
+2) Reader => reader
+`
+
+	fmt.Println(info)
+}
+
 func New(input *InitConfigInput) *Config {
 	e2env.EnvStringVar(&env, "env", "dev", "application run env=[dev|sit|uat|prod|unit-test|...]")
 	e2env.EnvStringVar(&logLevel, "log-level", "debug", "set logger level: [debug|info|warn|error]")
@@ -55,12 +88,14 @@ func New(input *InitConfigInput) *Config {
 		flag.Parse()
 	}
 
+	defaultPath := []string{".", "./etc", "./conf", "./config", "./cfg"}
+
 	if input != nil {
 		if len(input.Env) == 0 {
 			input.Env = env
 		}
 		if len(input.AddConfigPath) == 0 {
-			input.AddConfigPath = []string{".", "./etc", "./conf", "./config", "./cfg"}
+			input.AddConfigPath = defaultPath
 		}
 		if len(input.ConfigName) == 0 {
 			input.ConfigName = "app-" + env
@@ -68,7 +103,7 @@ func New(input *InitConfigInput) *Config {
 	} else {
 		input = &InitConfigInput{
 			Env:           env,
-			AddConfigPath: []string{".", "./etc", "./conf", "./config", "./cfg"},
+			AddConfigPath: defaultPath,
 			ConfigName:    "app-" + env,
 		}
 	}
@@ -94,6 +129,8 @@ func New(input *InitConfigInput) *Config {
 		}
 	}
 
+	v.SetConfigType("toml")
+
 	if f, err := input.ConfigFs.Open(filename); err == nil {
 		fmt.Printf("> load from embed fs, file name=%v\n", filename)
 		defer func(f fs.File) {
@@ -105,7 +142,6 @@ func New(input *InitConfigInput) *Config {
 		}
 	} else {
 		v.SetConfigName(input.ConfigName)
-		v.SetConfigType("toml")
 		for _, ap := range input.AddConfigPath {
 			fmt.Printf("add config path: %v\n", ap)
 			v.AddConfigPath(ap)
@@ -144,7 +180,7 @@ func setupSlog() {
 	}
 
 	ll := slog.LevelDebug
-	switch appConf.Logger.LogLevel {
+	switch appConf.Logger.Level {
 	case "trace", "debug":
 		ll = slog.LevelDebug
 	case "info":
@@ -164,7 +200,7 @@ func setupSlog() {
 	}
 
 	var h slog.Handler
-	switch appConf.Logger.LogFormat {
+	switch appConf.Logger.Format {
 	case "json":
 		h = slog.NewJSONHandler(w, opt)
 	default:
@@ -190,11 +226,11 @@ func setupLogrus() {
 		appConf.Logger = e2logrus.DefaultConfig()
 	}
 
-	if len(appConf.Logger.LogLevel) == 0 {
-		appConf.Logger.LogLevel = "debug"
+	if len(appConf.Logger.Level) == 0 {
+		appConf.Logger.Level = "debug"
 	}
 
-	ll, err := logrus.ParseLevel(appConf.Logger.LogLevel)
+	ll, err := logrus.ParseLevel(appConf.Logger.Level)
 	if err != nil {
 		ll = logrus.DebugLevel
 	}
@@ -218,11 +254,12 @@ func unmarshalAppConfig(v *viper.Viper) {
 	if err := v.Unmarshal(&appConf); err != nil {
 		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
-	// if len(v.GetStringMap("general")) > 0 {
-	//	appConf.General.PutAll(v.GetStringMap("general"))
-	//}
 }
 
 func (c *Config) GetStringMapStringByOS(key string) map[string]string {
 	return getStringMapStringByOS(c.Viper, key)
+}
+
+func (c *Config) Unmarshal(key string, p any) error {
+	return v.UnmarshalKey(key, &p)
 }

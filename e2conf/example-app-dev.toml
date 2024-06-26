@@ -1,10 +1,10 @@
-[ORM]
-Writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
-Reader = [
+[orm]
+writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
+reader = [
     "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
 ]
 
-[ORM1]
+[orm1]
 #  extract config, in code
 # 	var orm1 e2db.Config
 #	if err := app.App.Viper.UnmarshalKey("ORM1", &orm1); err != nil {
@@ -12,37 +12,39 @@ Reader = [
 #	}
 #	slog.Info("ORM1 config", "config", orm1)
 #
-Writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
-Reader = [
+writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
+reader = [
     "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
 ]
 
-[SQLITE]
-Writer = "file:db?mode=memory&cache=shared"
-Reader = ["file:db?mode=memory&cache=shared"]
+[sqlite]
+writer = "file:db?mode=memory&cache=shared"
+reader = ["file:db?mode=memory&cache=shared"]
 
-DBLogLevel = "Info" # Silent, Info, Warn, Error,
-LogAdapter = "logrus" # logrus, slog
+log_level = "Info" # Silent, Info, Warn, Error,
+log_adapter = "logrus" # logrus, slog
 
-Driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
-DisableAutoReport = false
-EnableTxDB = false
-EnableDebug = false
+driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
+disable_auto_report = false
+enable_debug = false
 
 [ORM1]
-Writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
-Reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
+writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
+reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
 
 
-[Http]
-Address = "0.0.0.0"
-Port = 8000
+[http]
+address = "0.0.0.0"
+port = 8000
 
-[Logger]
-Output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
-LogLevel = "debug" # trace, debug, info, warn, error
-LogFormat = "json" # json, text
-AddSource = false # slog only
+[logger]
+output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
+level = "debug" # trace, debug, info, warn, error
+format = "json" # json, text
+add_source = false # slog only
+max_age = 365
+rotation_time = 86400
+
 
 #[General]
 #skip_authorize = true

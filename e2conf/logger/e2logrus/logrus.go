@@ -15,21 +15,21 @@ type Config struct {
 	// Output 配置日志输出,有以下格式: file:///,stdout,stderr 等,文件路径设置例:
 	// /opt/logs/log.%Y%m%d
 	// 具体见  strftime(3) 格式
-	Output       string
-	LogLevel     string // 配置日志输出级别: trace,debug,info,warn,error
-	MaxAge       int    // 日志保留天数
-	RotationTime int    // 日志分割时间,单位秒,默认86400秒
-	LogFormat    string // 格式, json | text, default: json
-	AddSource    bool   // false slog only
+	Output       string `mapstructure:"output"`
+	Level        string `mapstructure:"level"`         // 配置日志输出级别: trace,debug,info,warn,error
+	MaxAge       int    `mapstructure:"max_age"`       // 日志保留天数
+	RotationTime int    `mapstructure:"rotation_time"` // 日志分割时间,单位秒,默认86400秒
+	Format       string `mapstructure:"format"`        // 格式, json | text, default: json
+	AddSource    bool   `mapstructure:"add_source"`    // false slog only
 }
 
 func DefaultConfig() *Config {
 	return &Config{
 		Output:       "stdout",
-		LogLevel:     "debug",
+		Level:        "debug",
 		MaxAge:       365,
 		RotationTime: 86400,
-		LogFormat:    "json",
+		Format:       "json",
 	}
 }
 

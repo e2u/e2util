@@ -1,6 +1,6 @@
 package e2http
 
 type Config struct {
-	Address string
-	Port    int
+	Address string `mapstructure:"address"`
+	Port    int    `mapstructure:"port"`
 }

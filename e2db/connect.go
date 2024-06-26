@@ -2,28 +2,18 @@ package e2db
 
 import (
 	"crypto/rand"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"strings"
-	"sync"
 
-	"github.com/DATA-DOG/go-txdb"
-	"github.com/e2u/e2util/e2hash/e2md5"
 	"github.com/e2u/e2util/e2model"
 	"github.com/glebarez/sqlite"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	// csqlite "gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-// var txDBOncePG sync.Once
-
-var txDBOncePG sync.Map
 
 type Connect struct {
 	*Config
@@ -38,14 +28,13 @@ type Option struct {
 
 type Config struct {
 	*gorm.Config
-	Writer            string
-	Reader            []string
-	DBLogLevel        string
-	LogAdapter        string
-	Driver            string
-	DisableAutoReport bool
-	EnableTxDB        bool
-	EnableDebug       bool
+	Writer            string   `mapstructure:"writer"`
+	Reader            []string `mapstructure:"reader"`
+	DBLogLevel        string   `mapstructure:"log_level"`
+	LogAdapter        string   `mapstructure:"log_adapter"`
+	Driver            string   `mapstructure:"driver"`
+	DisableAutoReport bool     `mapstructure:"disable_auto_report"`
+	EnableDebug       bool     `mapstructure:"enable_debug"`
 }
 
 func New(cfg *Config) *Connect {
@@ -88,62 +77,28 @@ func New(cfg *Config) *Connect {
 	switch conn.dialector.Name() {
 	case "mysql":
 		// user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-		if cfg.EnableTxDB {
-			panic("TxDB is not support")
-		} else {
-			if cfg.Writer != "" {
-				primaryDialector = mysql.Open(cfg.Writer)
-			}
-			for _, dns := range cfg.Reader {
-				slaveDialector = append(slaveDialector, mysql.Open(dns))
-			}
+		if cfg.Writer != "" {
+			primaryDialector = mysql.Open(cfg.Writer)
+		}
+		for _, dns := range cfg.Reader {
+			slaveDialector = append(slaveDialector, mysql.Open(dns))
 		}
 
 	case "postgres":
 		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
-		if cfg.EnableTxDB {
-			txdbKey := e2md5.MD5HexString([]byte(cfg.Writer))
-			if _, ok := txDBOncePG.Load(txdbKey); !ok {
-				txdb.Register(txdbKey, "pgx", cfg.Writer)
-				txDBOncePG.Store(txdbKey, true)
-			}
-			if sqlDB, err := sql.Open(txdbKey, uuid.NewString()); err == nil {
-				primaryDialector = postgres.New(postgres.Config{Conn: sqlDB})
-				slaveDialector = append(slaveDialector, postgres.New(postgres.Config{Conn: sqlDB}))
-			} else {
-				logrus.Errorf("open wirter connection error=%v", err)
-			}
-		} else {
-			if cfg.Writer != "" {
-				primaryDialector = postgres.Open(cfg.Writer)
-			}
-			for _, dns := range cfg.Reader {
-				slaveDialector = append(slaveDialector, postgres.Open(dns))
-			}
+		if cfg.Writer != "" {
+			primaryDialector = postgres.Open(cfg.Writer)
 		}
-	case "sqlite":
-		// file:db1?mode=memory&cache=shared
-		if cfg.EnableTxDB {
-			panic("TxDB is not support")
-		} else {
-			if cfg.Writer != "" {
-				primaryDialector = sqlite.Open(cfg.Writer)
-			}
-			for _, dns := range cfg.Reader {
-				slaveDialector = append(slaveDialector, sqlite.Open(dns))
-			}
+		for _, dns := range cfg.Reader {
+			slaveDialector = append(slaveDialector, postgres.Open(dns))
 		}
-	case "go-sqlite":
+	case "sqlite", "go-sqlite":
 		// file:db1?mode=memory&cache=shared
-		if cfg.EnableTxDB {
-			panic("TxDB is not support")
-		} else {
-			if cfg.Writer != "" {
-				primaryDialector = sqlite.Open(cfg.Writer)
-			}
-			for _, dns := range cfg.Reader {
-				slaveDialector = append(slaveDialector, sqlite.Open(dns))
-			}
+		if cfg.Writer != "" {
+			primaryDialector = sqlite.Open(cfg.Writer)
+		}
+		for _, dns := range cfg.Reader {
+			slaveDialector = append(slaveDialector, sqlite.Open(dns))
 		}
 	}
 

@@ -9,9 +9,20 @@ import (
 	"strings"
 )
 
-type A map[string]any
+type Attr map[string]any
 
-func (attr A) String() string {
+func A(key string, value any) Attr {
+	ra := make(Attr)
+	ra.Set(key, value)
+	return ra
+}
+
+func (attr Attr) Set(key string, value any) Attr {
+	attr[key] = value
+	return attr
+}
+
+func (attr Attr) String() string {
 	var buf []string
 	var keys []string
 	for k := range attr {
@@ -26,7 +37,7 @@ func (attr A) String() string {
 				buf = append(buf, fmt.Sprintf(`%s="%s"`, k, k))
 			}
 		case nil:
-			buf = append(buf, k)
+			buf = append(buf, escape(k))
 		default:
 			buf = append(buf, fmt.Sprintf(`%s="%v"`, k, escape(v)))
 		}
@@ -71,7 +82,7 @@ func T(name string, args ...any) TAG {
 	name = escape(name)
 
 	var rs []string
-	attrs := make(A)
+	attrs := make(Attr)
 	var text Text
 	var subResult []TAG
 
@@ -84,7 +95,7 @@ func T(name string, args ...any) TAG {
 		case Text,
 			string:
 			text = Text(escape(v))
-		case A:
+		case Attr:
 			maps.Copy(attrs, v)
 		default:
 			text = Text(escape(v))

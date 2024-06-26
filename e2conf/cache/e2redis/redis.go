@@ -11,8 +11,8 @@ import (
 )
 
 type Config struct {
-	Writer string // "redis://127.0.0.1:14023?db=0"
-	Reader string // "redis://127.0.0.1:14023?db=0"
+	Writer string `mapstructure:"writer"` // "redis://127.0.0.1:14023?db=0"
+	Reader string `mapstructure:"reader"` // "redis://127.0.0.1:14023?db=0"
 }
 
 type Client struct {

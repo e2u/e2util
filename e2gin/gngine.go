@@ -187,11 +187,11 @@ func customRecovery(c *gin.Context, err any) {
 		return strings.Join(rs, "\n")
 	}()
 
-	body := h.T("html", h.A{"lang": "en"},
+	body := h.T("html", h.A("lang", "en"),
 		h.T("head", h.T("title", h.Text("ServerError"))),
 		h.T("body",
 			h.T("h1", "Internal Server Error"),
-			h.T("ul", h.A{"style": "list-style: none"},
+			h.T("ul", h.Attr{"style": "list-style: none"},
 				h.T("li", fmt.Sprintf("TrackId: %s", trackId)),
 				h.T("li", time.Now().UTC().Format(time.RFC1123)),
 				h.T("<!--", dumpReq),

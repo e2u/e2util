@@ -3,8 +3,7 @@ module github.com/e2u/e2util
 go 1.22
 
 require (
-	github.com/DATA-DOG/go-txdb v0.1.8
-	github.com/aws/aws-sdk-go v1.54.5
+	github.com/aws/aws-sdk-go v1.54.6
 	github.com/aws/aws-sdk-go-v2 v1.30.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.56.1
 	github.com/gin-gonic/contrib v0.0.0-20240508051311-c1c6bf0061b0
@@ -12,11 +11,13 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.6.0
+	github.com/klauspost/compress v1.17.9
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/shopspring/decimal v1.4.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
+	github.com/tidwall/gjson v1.17.1
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.10
@@ -81,6 +82,8 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
