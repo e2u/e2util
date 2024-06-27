@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net"
 	"net/http"
@@ -27,7 +28,7 @@ import (
 
 type Option struct {
 	Root                   string
-	StaticFiles            *StaticFiles
+	StaticFiles            []*StaticFiles
 	DisabledPprof          bool
 	PprofPathPrefix        string
 	DisableHealth          bool
@@ -36,11 +37,12 @@ type Option struct {
 	Engine                 *gin.Engine
 	NoRouteProxyBackendURL string
 	DisableGzip            bool
+	HTMLTemplate           *template.Template
 }
 
 type StaticFiles struct {
 	embed.FS
-	SubDir string // example: "web/build"
+	HttpPath string
 }
 
 func DefaultEngine(opt *Option) *gin.Engine {
@@ -48,15 +50,21 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		opt = &Option{}
 	}
 
-	var router *gin.Engine
+	var eng *gin.Engine
 
 	if opt.Engine == nil {
-		router = gin.New()
+		eng = gin.New()
 	} else {
-		router = opt.Engine
+		eng = opt.Engine
+	}
+	if opt.HTMLTemplate != nil {
+		eng.SetHTMLTemplate(opt.HTMLTemplate)
 	}
 
-	hg := router.Group(opt.Root)
+	eng.GET("/favicon.ico", func(c *gin.Context) {
+		c.AbortWithStatus(http.StatusOK)
+	})
+	hg := eng.Group(opt.Root)
 	{
 		hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
 			SkipPaths: []string{opt.Root + "/_health", "/_health"},
@@ -73,16 +81,16 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		}
 	}
 
-	router.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
+	eng.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
 	if !opt.DisableGzip {
-		router.Use(gzip.Gzip(gzip.DefaultCompression))
+		eng.Use(gzip.Gzip(gzip.DefaultCompression))
 	}
-	router.Use(gin.CustomRecovery(customRecovery))
-	router.RemoveExtraSlash = true
-	router.HandleMethodNotAllowed = true
+	eng.Use(gin.CustomRecovery(customRecovery))
+	eng.RemoveExtraSlash = true
+	eng.HandleMethodNotAllowed = true
 
 	if opt.DisabledPprof {
-		return router
+		return eng
 	}
 
 	var once sync.Once
@@ -99,7 +107,7 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			pprofUrl := fmt.Sprintf("http://127.0.0.1:%d/debug/pprof", port)
 			logrus.Info(pprofUrl)
 
-			router.GET(opt.PprofPathPrefix+"/pprof-info", func(c *gin.Context) {
+			eng.GET(opt.PprofPathPrefix+"/pprof-info", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{
 					"pprof_url": pprofUrl,
 					"command": []string{
@@ -116,8 +124,13 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		})
 	}()
 
-	router.NoRoute(func(c *gin.Context) {
-		var send bool
+	if len(opt.StaticFiles) > 0 {
+		for _, file := range opt.StaticFiles {
+			AddEmbedStaticFs(file.FS, eng, file.HttpPath)
+		}
+	}
+
+	eng.NoRoute(func(c *gin.Context) {
 		if opt.NoRouteProxyBackendURL != "" {
 			proxyURL, _ := url.Parse(opt.NoRouteProxyBackendURL)
 			if hostPortActive(proxyURL.Host) {
@@ -129,21 +142,15 @@ func DefaultEngine(opt *Option) *gin.Engine {
 				proxy.ModifyResponse = func(resp *http.Response) error {
 					if resp.StatusCode == http.StatusOK {
 						resp.Header.Add("X-Content-Source", "proxy")
-						send = true
 					}
 					return nil
 				}
 				proxy.ServeHTTP(c.Writer, c.Request)
 			}
 		}
-
-		if opt.StaticFiles != nil && !send {
-			c.Header("X-Content-Source", "fs")
-			WebContent(c, opt.StaticFiles.FS, opt.StaticFiles.SubDir)
-		}
 	})
 
-	return router
+	return eng
 }
 
 func hostPortActive(host string) bool {

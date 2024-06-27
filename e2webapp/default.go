@@ -4,27 +4,23 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
-	"io"
 	"io/fs"
 	"maps"
-	"net/http"
-	"path/filepath"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/e2u/e2util/e2exec"
-	"github.com/e2u/e2util/e2hash/e2md5"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
-var etagCache = sync.Map{}
 var startupAt = time.Now()
 
 var (
 	FuncMap = make(template.FuncMap)
 )
+
+type App interface {
+	Routers(p *gin.RouterGroup)
+}
 
 func ParseTemplates(templateFs embed.FS) (*template.Template, error) {
 	tmpl := template.New("")
@@ -123,85 +119,85 @@ func parseTemplates(templateFS fs.FS, tmpl *template.Template, fns template.Func
 	return nil
 }
 
-func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
-	httpPath = filepath.Clean(httpPath)
-
-	r.Use(func(c *gin.Context) {
-		if c.Request.URL.Path == httpPath || c.Request.URL.Path == httpPath+"/" {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-		c.Next()
-	})
-
-	r.Use(func(c *gin.Context) {
-		if !strings.HasPrefix(c.Request.RequestURI, httpPath) {
-			c.Next()
-			return
-		}
-
-		var etag string
-		fileName := strings.TrimLeft(c.Request.RequestURI, httpPath)
-
-		if before, _, ok := strings.Cut(fileName, "?"); ok {
-			fileName = before
-		}
-
-		if strings.HasSuffix(fileName, "/") {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-
-		v, ok := etagCache.Load(fileName)
-		if ok && v != nil {
-			etag = v.(string)
-		} else {
-			b, err := readFileContent(staticFs, fileName)
-			if err != nil {
-				logrus.Errorf("read file error=%v", err)
-				c.Next()
-				return
-			}
-			etag = e2md5.MD5HexString(b)
-			etagCache.Store(fileName, etag)
-		}
-
-		if MatchEtag(c, []byte(etag)) {
-			return
-		}
-
-	}).StaticFS(httpPath, http.FS(staticFs))
-}
-
-func readFileContent(staticFs fs.FS, fileName string) ([]byte, error) {
-	f, err := staticFs.Open(fileName)
-	if err != nil {
-		logrus.Errorf("open file error=%v", err)
-		return nil, err
-	}
-	defer e2exec.MustClose(f)
-	b, err := io.ReadAll(f)
-	if err != nil {
-		logrus.Errorf("read file error=%v", err)
-		return nil, err
-	}
-	return b, nil
-}
-
-func AddEmbedStaticFs(efs embed.FS, r *gin.Engine, httpPath string) {
-	staticFs, _ := fs.Sub(efs, ".")
-	AddStaticFs(staticFs, r, httpPath)
-}
-
-func MatchEtag(c *gin.Context, data []byte) bool {
-	etag := e2md5.HeadTailHex(data)
-	c.Header("Cache-Control", "public, max-age=31536000")
-	c.Header("ETag", etag)
-
-	if match := c.GetHeader("If-None-Match"); match != "" && match == etag {
-		c.Status(http.StatusNotModified)
-		c.Abort()
-		return true
-	}
-	return false
-}
+//func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
+//	httpPath = filepath.Clean(httpPath)
+//
+//	r.Use(func(c *gin.Context) {
+//		if c.Request.URL.Path == httpPath || c.Request.URL.Path == httpPath+"/" {
+//			c.AbortWithStatus(http.StatusForbidden)
+//			return
+//		}
+//		c.Next()
+//	})
+//
+//	r.Use(func(c *gin.Context) {
+//		if !strings.HasPrefix(c.Request.RequestURI, httpPath) {
+//			c.Next()
+//			return
+//		}
+//
+//		var etag string
+//		fileName := strings.TrimLeft(c.Request.RequestURI, httpPath)
+//
+//		if before, _, ok := strings.Cut(fileName, "?"); ok {
+//			fileName = before
+//		}
+//
+//		if strings.HasSuffix(fileName, "/") {
+//			c.AbortWithStatus(http.StatusForbidden)
+//			return
+//		}
+//
+//		v, ok := etagCache.Load(fileName)
+//		if ok && v != nil {
+//			etag = v.(string)
+//		} else {
+//			b, err := readFileContent(staticFs, fileName)
+//			if err != nil {
+//				logrus.Errorf("read file error=%v", err)
+//				c.Next()
+//				return
+//			}
+//			etag = e2md5.MD5HexString(b)
+//			etagCache.Store(fileName, etag)
+//		}
+//
+//		if MatchEtag(c, []byte(etag)) {
+//			return
+//		}
+//
+//	}).StaticFS(httpPath, http.FS(staticFs))
+//}
+//
+//func readFileContent(staticFs fs.FS, fileName string) ([]byte, error) {
+//	f, err := staticFs.Open(fileName)
+//	if err != nil {
+//		logrus.Errorf("open file error=%v", err)
+//		return nil, err
+//	}
+//	defer e2exec.MustClose(f)
+//	b, err := io.ReadAll(f)
+//	if err != nil {
+//		logrus.Errorf("read file error=%v", err)
+//		return nil, err
+//	}
+//	return b, nil
+//}
+//
+//func AddEmbedStaticFs(efs embed.FS, r *gin.Engine, httpPath string) {
+//	staticFs, _ := fs.Sub(efs, ".")
+//	AddStaticFs(staticFs, r, httpPath)
+//}
+//
+//func MatchEtag(c *gin.Context, data []byte) bool {
+//	etag := e2md5.HeadTailHex(data)
+//	c.Header("Cache-Control", "public, max-age=31536000")
+//	c.Header("ETag", etag)
+//
+//	if match := c.GetHeader("If-None-Match"); match != "" && match == etag {
+//		c.Status(http.StatusNotModified)
+//		c.Abort()
+//		return true
+//	}
+//	return false
+//}
