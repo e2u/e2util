@@ -28,7 +28,7 @@ driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sq
 disable_auto_report = false
 enable_debug = false
 
-[ORM1]
+[orm1]
 writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
 reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
 

@@ -119,7 +119,7 @@ func parseTemplates(templateFS fs.FS, tmpl *template.Template, fns template.Func
 	return nil
 }
 
-//func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
+// func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
 //	httpPath = filepath.Clean(httpPath)
 //
 //	r.Use(func(c *gin.Context) {
@@ -169,7 +169,7 @@ func parseTemplates(templateFS fs.FS, tmpl *template.Template, fns template.Func
 //	}).StaticFS(httpPath, http.FS(staticFs))
 //}
 //
-//func readFileContent(staticFs fs.FS, fileName string) ([]byte, error) {
+// func readFileContent(staticFs fs.FS, fileName string) ([]byte, error) {
 //	f, err := staticFs.Open(fileName)
 //	if err != nil {
 //		logrus.Errorf("open file error=%v", err)
@@ -184,12 +184,12 @@ func parseTemplates(templateFS fs.FS, tmpl *template.Template, fns template.Func
 //	return b, nil
 //}
 //
-//func AddEmbedStaticFs(efs embed.FS, r *gin.Engine, httpPath string) {
+// func AddEmbedStaticFs(efs embed.FS, r *gin.Engine, httpPath string) {
 //	staticFs, _ := fs.Sub(efs, ".")
 //	AddStaticFs(staticFs, r, httpPath)
 //}
 //
-//func MatchEtag(c *gin.Context, data []byte) bool {
+// func MatchEtag(c *gin.Context, data []byte) bool {
 //	etag := e2md5.HeadTailHex(data)
 //	c.Header("Cache-Control", "public, max-age=31536000")
 //	c.Header("ETag", etag)

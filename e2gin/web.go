@@ -69,9 +69,7 @@ func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
 		if MatchEtag(c, []byte(etag)) {
 			return
 		}
-
 	}).StaticFS(httpPath, http.FS(staticFs))
-
 }
 
 func readFileContent(staticFs fs.FS, fileName string) ([]byte, error) {

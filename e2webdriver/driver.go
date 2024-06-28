@@ -31,7 +31,7 @@ var (
 	}
 )
 
-//const (
+// const (
 //	VersionStable = "Stable"
 //	VersionBeta   = "Beta"
 //	VersionDev    = "Dev"
@@ -72,7 +72,7 @@ func Install(ctx context.Context, binDir ...string) (string, error) {
 // https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json
 
 // https://googlechromelabs.github.io/chrome-for-testing/113.0.5672.63.json
-//func downloadDriver(ctx context.Context, localDir string) error {
+// func downloadDriver(ctx context.Context, localDir string) error {
 //	e2http.Builder(ctx).URL("https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json")
 //	return nil
 //}

@@ -21,11 +21,11 @@ import (
 
 type Config struct {
 	Env    string
-	Http   *e2http.Config
-	Orm    *e2db.Config
-	Redis  *e2redis.Config
-	Logger *e2logrus.Config
-	Viper  *viper.Viper
+	Http   *e2http.Config   `mapstructure:"http"`
+	Orm    *e2db.Config     `mapstructure:"orm"`
+	Redis  *e2redis.Config  `mapstructure:"redis"`
+	Logger *e2logrus.Config `mapstructure:"logger"`
+	Viper  *viper.Viper     `mapstructure:"-"`
 }
 
 var (
@@ -78,7 +78,7 @@ Redis
 	fmt.Println(info)
 }
 
-func New(input *InitConfigInput) *Config {
+func New[T *InitConfigInput | embed.FS](args T) *Config {
 	e2env.EnvStringVar(&env, "env", "dev", "application run env=[dev|sit|uat|prod|unit-test|...]")
 	e2env.EnvStringVar(&logLevel, "log-level", "debug", "set logger level: [debug|info|warn|error]")
 	e2env.EnvStringVar(&searchPath, "search-path", "", "set config search path")
@@ -90,22 +90,23 @@ func New(input *InitConfigInput) *Config {
 
 	defaultPath := []string{".", "./etc", "./conf", "./config", "./cfg"}
 
-	if input != nil {
-		if len(input.Env) == 0 {
-			input.Env = env
-		}
-		if len(input.AddConfigPath) == 0 {
-			input.AddConfigPath = defaultPath
-		}
-		if len(input.ConfigName) == 0 {
-			input.ConfigName = "app-" + env
-		}
-	} else {
-		input = &InitConfigInput{
-			Env:           env,
-			AddConfigPath: defaultPath,
-			ConfigName:    "app-" + env,
-		}
+	input := &InitConfigInput{}
+
+	switch v := any(args).(type) {
+	case *InitConfigInput:
+		input = v
+	case embed.FS:
+		input.ConfigFs = v
+	}
+
+	if len(input.Env) == 0 {
+		input.Env = env
+	}
+	if len(input.AddConfigPath) == 0 {
+		input.AddConfigPath = defaultPath
+	}
+	if len(input.ConfigName) == 0 {
+		input.ConfigName = "app-" + env
 	}
 
 	appConf = &Config{

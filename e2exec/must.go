@@ -21,10 +21,8 @@ func Must2[T any, T2 any](v T, v2 T2, err error) (T, T2) {
 }
 
 func MustClose(fn io.Closer) {
-	if v, ok := fn.(io.Closer); ok {
-		if err := v.Close(); err != nil {
-			logrus.Errorf("e2exec.MustClose() error=%v", err)
-		}
+	if err := fn.Close(); err != nil {
+		logrus.Errorf("e2exec.MustClose() error=%v", err)
 	}
 }
 
@@ -36,11 +34,14 @@ func SilentError(args ...any) {
 		logrus.Errorf("e2exec.SilentError() error=%v", args[0])
 		return
 	}
+
 	switch err := args[len(args)-1].(type) {
 	case error:
 		if err != nil {
 			logrus.Errorf("e2exec.SilentError() error=%v", err)
 		}
+	default:
+		logrus.Warn("e2exec.SilentError() last parameter not a error type")
 	}
 }
 
