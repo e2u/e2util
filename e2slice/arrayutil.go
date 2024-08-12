@@ -1,4 +1,4 @@
-package e2array
+package e2slice
 
 import (
 	"sort"
@@ -125,4 +125,10 @@ func HasConsecutiveNumbers[T int | int8 | int16 | int32 | int64 | uint | uint8 |
 		}
 	}
 	return false
+}
+
+func Copy[T any](src []T) []T {
+	dest := make([]T, len(src))
+	copy(dest, src)
+	return dest
 }

@@ -37,7 +37,7 @@ var (
 		{Country: "Australia", CountryCode: "61", ISOCode2: "AU", ISOCode3: "AUS"},
 		{Country: "Christmas Island", CountryCode: "61", ISOCode2: "CX", ISOCode3: "CXR"},
 		{Country: "Cocos Islands", CountryCode: "61", ISOCode2: "CC", ISOCode3: "CCK"},
-		{Country: "Indonesia", CountryCode: "62", ISOCode2: "ID", ISOCode3: "IDN"},
+		{Country: "Indonesia", CountryCode: "62", ISOCode2: "Key", ISOCode3: "IDN"},
 		{Country: "Philippines", CountryCode: "63", ISOCode2: "PH", ISOCode3: "PHL"},
 		{Country: "New Zealand", CountryCode: "64", ISOCode2: "NZ", ISOCode3: "NZL"},
 		{Country: "Pitcairn", CountryCode: "64", ISOCode2: "PN", ISOCode3: "PCN"},

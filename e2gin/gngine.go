@@ -2,9 +2,11 @@ package e2gin
 
 import (
 	"bytes"
-	"embed"
+	_ "embed"
 	"fmt"
 	"html/template"
+	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -26,6 +28,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//go:embed resources/favicon.ico
+var favicon []byte
+
 type Option struct {
 	Root                   string
 	StaticFiles            []*StaticFiles
@@ -35,13 +40,14 @@ type Option struct {
 	SkipLogPaths           []string
 	HealthPathPrefix       string
 	Engine                 *gin.Engine
+	NoRouteStaticFiles     []*StaticFiles
 	NoRouteProxyBackendURL string
 	DisableGzip            bool
 	HTMLTemplate           *template.Template
 }
 
 type StaticFiles struct {
-	embed.FS
+	fs.FS
 	HttpPath string
 }
 
@@ -57,13 +63,23 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	} else {
 		eng = opt.Engine
 	}
+
 	if opt.HTMLTemplate != nil {
 		eng.SetHTMLTemplate(opt.HTMLTemplate)
 	}
 
-	eng.GET("/favicon.ico", func(c *gin.Context) {
-		c.AbortWithStatus(http.StatusOK)
-	})
+	if opt.Root == "" {
+		opt.Root = "/"
+	}
+
+	if opt.PprofPathPrefix == "" {
+		opt.HealthPathPrefix = "/__app"
+	}
+
+	if opt.HealthPathPrefix == "" {
+		opt.HealthPathPrefix = "/__app"
+	}
+
 	hg := eng.Group(opt.Root)
 	{
 		hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
@@ -126,11 +142,62 @@ func DefaultEngine(opt *Option) *gin.Engine {
 
 	if len(opt.StaticFiles) > 0 {
 		for _, file := range opt.StaticFiles {
-			AddEmbedStaticFs(file.FS, eng, file.HttpPath)
+			registerStaticFiles(eng, file.FS, file.HttpPath)
+			// AddEmbedStaticFs(file.FS, eng, file.HttpPath)
 		}
 	}
 
-	eng.NoRoute(func(c *gin.Context) {
+	// only the last one NoRoute method will be executed
+	noRouteChain := []gin.HandlerFunc{
+		noRouteStaticIndex(opt.StaticFiles),
+		noRouteFavicon(),
+	}
+
+	eng.NoRoute(noRouteChain...)
+	return eng
+}
+
+func loadIndexPage(sfs []*StaticFiles) []byte {
+	var indexPage []byte
+	for _, sf := range sfs {
+		if sf.HttpPath != "/" {
+			continue
+		}
+		if f, err := sf.Open("index.html"); err == nil {
+			if b, rErr := io.ReadAll(f); rErr == nil {
+				indexPage = make([]byte, len(b))
+				copy(indexPage, b)
+			}
+			_ = f.Close()
+		}
+	}
+	return indexPage
+}
+
+// process staticFS / 301 redirect too many times issues
+
+func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
+	indexPageByte := loadIndexPage(sfs)
+	return func(c *gin.Context) {
+		reqUri, _, _ := strings.Cut(c.Request.URL.String(), "?")
+		if reqUri == "/index.html" || reqUri == "/" || reqUri == "" {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+		}
+	}
+}
+
+// the noRouteFavicon consider to run at last one
+func noRouteFavicon() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.RequestURI == "/favicon.ico" {
+			c.Data(http.StatusOK, "image/x-icon", favicon)
+			return
+		}
+	}
+}
+
+func noRouteProxy(opt *Option) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		if opt.NoRouteProxyBackendURL != "" {
 			proxyURL, _ := url.Parse(opt.NoRouteProxyBackendURL)
 			if hostPortActive(proxyURL.Host) {
@@ -147,10 +214,9 @@ func DefaultEngine(opt *Option) *gin.Engine {
 				}
 				proxy.ServeHTTP(c.Writer, c.Request)
 			}
+			return
 		}
-	})
-
-	return eng
+	}
 }
 
 func hostPortActive(host string) bool {

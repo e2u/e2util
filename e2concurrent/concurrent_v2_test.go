@@ -52,8 +52,8 @@ func newTask(i int) Task {
 		Arg: Arg{
 			Refer: fmt.Sprintf("%000d", i),
 			Value: TArg{
-				A: int(e2crypto.RandomUint(0, 100)),
-				B: int(e2crypto.RandomUint(50, 200)),
+				A: int(e2crypto.RandomInt64(0, 100)),
+				B: int(e2crypto.RandomInt64(50, 200)),
 				C: e2crypto.RandomString(5),
 			},
 		},

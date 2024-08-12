@@ -3,8 +3,18 @@ writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database s
 reader = [
     "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
 ]
+log_level = "Info" # Silent, Info, Warn, Error,
+log_adapter = "logrus" # logrus, slog
 
-[orm1]
+driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
+disable_auto_report = false
+enable_debug = false
+
+init_sqls = [
+    "CREATE EXTENSION citext"
+]
+
+[orm-pg1]
 #  extract config, in code
 # 	var orm1 e2db.Config
 #	if err := app.App.Viper.UnmarshalKey("ORM1", &orm1); err != nil {
@@ -21,14 +31,8 @@ reader = [
 writer = "file:db?mode=memory&cache=shared"
 reader = ["file:db?mode=memory&cache=shared"]
 
-log_level = "Info" # Silent, Info, Warn, Error,
-log_adapter = "logrus" # logrus, slog
 
-driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
-disable_auto_report = false
-enable_debug = false
-
-[orm1]
+[orm-sqlite1]
 writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
 reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
 
@@ -36,6 +40,7 @@ reader = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synch
 [http]
 address = "0.0.0.0"
 port = 8000
+base_url = "http://127.0.0.1:8000"
 
 [logger]
 output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
@@ -46,7 +51,11 @@ max_age = 365
 rotation_time = 86400
 
 
-#[General]
-#skip_authorize = true
-#upload_file_path = "/tmp/uploads"
 
+[storage_darwin]
+photos_dir = "/Volumes/r1/images"
+badger_dir = "./badger"
+
+[storage_linux]
+photos_dir = "/mnt/s1/images"
+dadger_dir = "./badger"

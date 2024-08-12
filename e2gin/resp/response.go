@@ -1,10 +1,19 @@
 package resp
 
 import (
+	"fmt"
 	"maps"
 	"net/http"
+	"reflect"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	ConsumerHeader         = "X-Api-Consumer"
+	ConsumerTypeRADataJSON = "ra-data-json" // ra-data-json-server in react-admin
 )
 
 type StatusMessage struct {
@@ -68,6 +77,10 @@ type ErrorResponse struct {
 }
 
 func AboutWithJSON(c *gin.Context, code int, detail any) {
+	if raDataJSON(c, code, detail) {
+		c.Abort()
+		return
+	}
 	v := getCodeMessage(code)
 	rv := gin.H{
 		"code":    v.Code,
@@ -78,6 +91,9 @@ func AboutWithJSON(c *gin.Context, code int, detail any) {
 }
 
 func SuccessWithJSON(c *gin.Context, code int, data any) {
+	if raDataJSON(c, code, data) {
+		return
+	}
 	v := getCodeMessage(code)
 	r := gin.H{
 		"code":    v.Code,
@@ -94,4 +110,32 @@ func SuccessWithJSON(c *gin.Context, code int, data any) {
 		maps.Copy(r, gin.H{"data": data})
 	}
 	c.JSON(v.HttpCode, r)
+}
+
+func raDataJSON(c *gin.Context, code int, data any) bool {
+	if strings.EqualFold(c.GetHeader(ConsumerHeader), ConsumerTypeRADataJSON) {
+		if sl, ok := getSliceLen(data); ok {
+			c.Header("X-Total-Count", fmt.Sprintf("%d", sl))
+		}
+		cm := getCodeMessage(code)
+		c.JSON(cm.HttpCode, data)
+		return true
+	}
+	return false
+}
+
+func getSliceLen(v any) (int, bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.Warningf("Recovered in getSliceLen %v", r)
+		}
+	}()
+	rt := reflect.TypeOf(v)
+	rv := reflect.ValueOf(v)
+	switch rt.Kind() {
+	case reflect.Slice, reflect.Array:
+		return rv.Len(), true
+	default:
+		return 0, false
+	}
 }

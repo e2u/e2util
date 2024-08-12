@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/e2u/e2util/e2map"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +38,7 @@ type Model struct {
 
 // type Product struct {
 //	*Model
-//	ID            string          `gorm:"column:id" json:"id"`
+//	Key            string          `gorm:"column:id" json:"id"`
 //	Name          string          `gorm:"column:name" json:"name"`
 //	Brand         string          `gorm:"column:brand" json:"brand"`
 //	UPC           string          `gorm:"column:upc" json:"upc"`                         // Universal Product Code (UPC)
@@ -92,4 +93,18 @@ func JSONBScan[T any](model T, value any) error {
 		return errors.New("type assertion to []byte failed")
 	}
 	return json.Unmarshal(data, &model)
+}
+
+type JSONBMapArray []e2map.Map
+
+func (jsonField JSONBMapArray) Value() (driver.Value, error) {
+	return json.Marshal(jsonField)
+}
+
+func (jsonField *JSONBMapArray) Scan(value any) error {
+	data, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(data, &jsonField)
 }

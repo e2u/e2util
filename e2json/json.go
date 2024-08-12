@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/e2u/e2util/e2exec"
 	"github.com/sirupsen/logrus"
 )
 
@@ -87,6 +88,10 @@ func MustToJSONByte(v interface{}, indent ...bool) []byte {
 		return nil
 	}
 	return b
+}
+
+func FSprintf(io io.Writer, v interface{}, indent ...bool) {
+	e2exec.SilentError(io.Write(MustToJSONByte(v, indent...)))
 }
 
 func MustToJSONString(v interface{}, indent ...bool) string {

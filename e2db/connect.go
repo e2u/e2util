@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"regexp"
 	"strings"
 
 	"github.com/e2u/e2util/e2model"
+	"github.com/e2u/e2util/e2regexp"
 	"github.com/glebarez/sqlite"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
@@ -28,13 +30,15 @@ type Option struct {
 
 type Config struct {
 	*gorm.Config
-	Writer            string   `mapstructure:"writer"`
-	Reader            []string `mapstructure:"reader"`
-	DBLogLevel        string   `mapstructure:"log_level"`
-	LogAdapter        string   `mapstructure:"log_adapter"`
-	Driver            string   `mapstructure:"driver"`
-	DisableAutoReport bool     `mapstructure:"disable_auto_report"`
-	EnableDebug       bool     `mapstructure:"enable_debug"`
+	Writer             string   `mapstructure:"writer"`
+	Reader             []string `mapstructure:"reader"`
+	DBLogLevel         string   `mapstructure:"log_level"`
+	LogAdapter         string   `mapstructure:"log_adapter"`
+	Driver             string   `mapstructure:"driver"`
+	DisableAutoReport  bool     `mapstructure:"disable_auto_report"`
+	EnableDebug        bool     `mapstructure:"enable_debug"`
+	AutoCreateDatabase bool     `mapstructure:"auto_create_database"`
+	InitSqls           []string `mapstructure:"init_sqls"`
 }
 
 func New(cfg *Config) *Connect {
@@ -77,35 +81,63 @@ func New(cfg *Config) *Connect {
 	switch conn.dialector.Name() {
 	case "mysql":
 		// user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
+		cfg.Driver = "mysql"
 		if cfg.Writer != "" {
 			primaryDialector = mysql.Open(cfg.Writer)
 		}
-		for _, dns := range cfg.Reader {
-			slaveDialector = append(slaveDialector, mysql.Open(dns))
+
+		for _, dsn := range cfg.Reader {
+			slaveDialector = append(slaveDialector, mysql.Open(dsn))
 		}
 
 	case "postgres":
 		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
+		cfg.Driver = "postgres"
 		if cfg.Writer != "" {
 			primaryDialector = postgres.Open(cfg.Writer)
 		}
-		for _, dns := range cfg.Reader {
-			slaveDialector = append(slaveDialector, postgres.Open(dns))
+
+		for _, dsn := range cfg.Reader {
+			slaveDialector = append(slaveDialector, postgres.Open(dsn))
 		}
 	case "sqlite", "go-sqlite":
 		// file:db1?mode=memory&cache=shared
+		cfg.Driver = "sqlite3"
 		if cfg.Writer != "" {
 			primaryDialector = sqlite.Open(cfg.Writer)
 		}
-		for _, dns := range cfg.Reader {
-			slaveDialector = append(slaveDialector, sqlite.Open(dns))
+		for _, dsn := range cfg.Reader {
+			slaveDialector = append(slaveDialector, sqlite.Open(dsn))
 		}
 	}
 
 	conn.db, err = gorm.Open(primaryDialector, cfg.Config)
 	if err != nil {
-		logrus.Errorf("open primary connection error=%v", err)
-		panic(err)
+		switch cfg.Driver {
+		case "postgres":
+			if cfg.AutoCreateDatabase && strings.Contains(err.Error(), "does not exist") {
+				if err := createPostgresDatabase(cfg.Writer); err != nil {
+					logrus.Fatalf("create postgres database error=%v", err)
+					return nil
+				}
+			}
+		case "mysql":
+			if cfg.AutoCreateDatabase && strings.Contains(err.Error(), "Unknown database") {
+				if err := createMySQLDatabase(cfg.Writer); err != nil {
+					logrus.Fatalf("create mysql database error=%v", err)
+					return nil
+				}
+			}
+		}
+
+		conn.db, err = gorm.Open(primaryDialector, cfg.Config)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for _, s := range cfg.InitSqls {
+		conn.db.Exec(s)
 	}
 
 	if conn.dialector.Name() == "sqlite" {
@@ -158,7 +190,7 @@ func (c *Connect) RO(opts ...*Option) *gorm.DB {
 }
 
 // Exists
-// exs := d.Exists(&model.Dictionary{}, "category_code = ? and code = ?", categoryCode, code)
+// exs := d.exists(&model.Dictionary{}, "category_code = ? and code = ?", categoryCode, code)
 // return exs.Bool, exs.Error
 func (c *Connect) Exists(v interface{}, query string, where ...interface{}) *e2model.NullBool {
 	var count int64
@@ -206,4 +238,60 @@ func (c *Connect) CreateSchema(schemas ...string) {
 			slog.Error("gorm create schema error", "error", err, "schema", schema)
 		}
 	}
+}
+
+func createPostgresDatabase(dsn string) error {
+	var dsnc []string
+	var dbname string
+	for _, d := range strings.Split(dsn, " ") {
+		d = strings.TrimSpace(d)
+		if strings.HasPrefix(strings.ToLower(d), "dbname=") {
+			dbname, _ = strings.CutPrefix(d, "dbname=")
+			continue
+		}
+		dsnc = append(dsnc, d)
+	}
+	if dbname == "" {
+		return fmt.Errorf("database name is empty")
+	}
+	logrus.Infof("create new database %s at %s", dbname, strings.Join(dsnc, " "))
+	tempDB, err := gorm.Open(postgres.Open(strings.Join(dsnc, " ")), &gorm.Config{})
+	if err != nil {
+		logrus.Fatalf("failed to connect to Postgres: %v", err)
+		return err
+	}
+	createSql := fmt.Sprintf(`CREATE DATABASE %s`, dbname)
+	if err := tempDB.Exec(createSql).Error; err != nil {
+		logrus.Fatalf("failed to create database: %v", err)
+		return err
+	}
+	logrus.Info("Postgres database created successfully")
+	return nil
+}
+
+func createMySQLDatabase(dsn string) error {
+	re := regexp.MustCompile(`^(?P<userinfo>[^@]+)@(?P<conn>[^/]+)/(?P<dbname>[^\?]+)\?(?P<params>.+)$`)
+	rs, ok := e2regexp.NamedFindStringSubmatch(dsn, re)
+	if !ok {
+		return fmt.Errorf("dsn parse error")
+	}
+
+	if _, ok := rs["dbname"]; !ok {
+		return fmt.Errorf("dsn parse error")
+	}
+
+	tmpDSN := fmt.Sprintf("%s@%s/?%s", rs["userinfo"], rs["conn"], rs["params"])
+	logrus.Infof("create new database %s at %s", rs["dbname"], tmpDSN)
+	tempDB, err := gorm.Open(mysql.Open(tmpDSN), &gorm.Config{})
+	if err != nil {
+		logrus.Fatalf("failed to connect to MySQL: %v", err)
+		return err
+	}
+	createSql := fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s`, rs["dbname"])
+	if err := tempDB.Exec(createSql).Error; err != nil {
+		logrus.Fatalf("failed to create database: %v", err)
+		return err
+	}
+	logrus.Info("MySQL database created successfully")
+	return nil
 }

@@ -26,7 +26,7 @@ func MustGetCount(db *gorm.DB, model interface{}, query interface{}, args ...int
 	}
 }
 
-func SaveWithContext[T any](ctx context.Context, db *gorm.DB, model T) (T, error) {
+func SaveAndPreload[T any](ctx context.Context, db *gorm.DB, model T) (T, error) {
 	dd := db.WithContext(ctx).Save(model)
 	if err := dd.Error; err != nil {
 		return model, err
@@ -52,4 +52,13 @@ func SaveWithContext[T any](ctx context.Context, db *gorm.DB, model T) (T, error
 	var rv T
 	err := dd.Preload(clause.Associations).Limit(1).Where(qm).Find(&rv).Error
 	return rv, err
+}
+
+func DropTables(db *gorm.DB, tables ...interface{}) error {
+	for _, table := range tables {
+		if err := db.Migrator().DropTable(table); err != nil {
+			return err
+		}
+	}
+	return nil
 }

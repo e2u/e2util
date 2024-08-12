@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/e2u/e2util/e2exec"
 	"github.com/google/uuid"
+	"golang.org/x/sync/semaphore"
 )
 
 type Trace struct {
@@ -90,12 +92,14 @@ func Exec(ctx context.Context, maxConcurrency int, taskFn func(tasks chan<- Task
 		close(tasksChan)
 	}()
 
-	semaphore := make(chan struct{}, maxConcurrency)
+	sem := semaphore.NewWeighted(int64(maxConcurrency))
 	for task := range tasksChan {
-		semaphore <- struct{}{}
+		e2exec.SilentError(sem.Acquire(ctx, 1))
 		wg.Add(1)
 		go func(t Task) {
-			defer func() { <-semaphore }()
+			defer func() {
+				sem.Release(1)
+			}()
 			taskWorker(uuid.NewString(), t, resultFn, &wg)
 		}(task)
 	}

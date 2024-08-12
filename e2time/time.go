@@ -27,7 +27,7 @@ func TimePointer(t time.Time) *time.Time {
 }
 
 func SleepRandom(min time.Duration, max time.Duration) time.Duration {
-	rn := time.Duration(e2crypto.RandomUint(int64(min), int64(max)))
+	rn := time.Duration(e2crypto.RandomNumber(int64(min), int64(max)))
 	time.Sleep(rn)
 	return rn
 }

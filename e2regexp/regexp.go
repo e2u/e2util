@@ -2,10 +2,18 @@ package e2regexp
 
 import (
 	"regexp"
+
+	"github.com/e2u/e2util/e2map"
 )
 
-func NamedFindStringSubmatch(s string, r *regexp.Regexp) (map[string]string, bool) {
-	rs := make(map[string]string)
+/*
+*
+phone := "202-555-0147"
+phoneRENamedCaps := `(?P<area>\d{3})\-(?P<exchange>\d{3})\-(?P<line>\d{4})$`
+re = regexp.MustCompile(phoneRENamedCaps)
+*/
+func NamedFindStringSubmatch(s string, r *regexp.Regexp) (e2map.Map, bool) {
+	rs := make(e2map.Map)
 	if !r.MatchString(s) {
 		return rs, false
 	}

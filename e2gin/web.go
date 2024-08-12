@@ -66,7 +66,7 @@ func AddStaticFs(staticFs fs.FS, r *gin.Engine, httpPath string) {
 			etagCache.Store(requestFile, etag)
 		}
 
-		if MatchEtag(c, []byte(etag)) {
+		if matchEtag(c, []byte(etag)) {
 			return
 		}
 	}).StaticFS(httpPath, http.FS(staticFs))
@@ -95,7 +95,7 @@ func AddEmbedStaticFs(efs embed.FS, r *gin.Engine, httpPath string) {
 	AddStaticFs(staticFs, r, httpPath)
 }
 
-func MatchEtag(c *gin.Context, data []byte) bool {
+func matchEtag(c *gin.Context, data []byte) bool {
 	etag := e2md5.HeadTailHex(data)
 	c.Header("Cache-Control", "public, max-age=31536000")
 	c.Header("ETag", etag)
@@ -105,4 +105,47 @@ func MatchEtag(c *gin.Context, data []byte) bool {
 		return true
 	}
 	return false
+}
+
+// func staticFileRender(staticFs fs.FS, path string) gin.HandlerFunc {
+//	return func(c *gin.Context) {
+//
+//		reqUri, _, _ := strings.Cut(c.Request.URL.String(), "?")
+//		v, ok := etagCache.Load(reqUri)
+//		if ok && v != nil {
+//			etag := v.(string)
+//			if match := c.GetHeader("If-None-Match"); match != "" && match == etag {
+//				c.AbortWithStatus(http.StatusNotModified)
+//				return
+//			}
+//		}
+//
+//		content, err := readFileContent(staticFs, path)
+//		if err != nil {
+//			logrus.Errorf("read file error=%v", err)
+//			e2exec.SilentError(c.AbortWithError(http.StatusInternalServerError, err))
+//			return
+//		}
+//		etag := e2md5.MD5HexString(content)
+//		etagCache.Store(reqUri, etag)
+//		c.Header("Cache-Control", "public, max-age=31536000")
+//		c.Header("ETag", etag)
+//		c.Data(http.StatusOK, e2http.GetContentType(path), content)
+//
+//	}
+//}
+
+func registerStaticFiles(r *gin.Engine, staticFs fs.FS, httpPath string) {
+	rg := r.Group(httpPath)
+	httpFS := http.FS(staticFs)
+	err := fs.WalkDir(staticFs, ".", func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return nil
+		}
+		rg.StaticFileFS(path, path, httpFS)
+		return err
+	})
+	if err != nil {
+		logrus.Errorf("registerStaticFiles error=%v", err)
+	}
 }

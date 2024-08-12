@@ -3,7 +3,7 @@ package e2model
 import (
 	"database/sql"
 
-	"github.com/e2u/e2util/e2array"
+	"github.com/e2u/e2util/e2slice"
 )
 
 const (
@@ -26,12 +26,12 @@ type HttpPatch struct {
 
 // AllowOp 检查当前请求是否在允许操作列表中
 func (h *HttpPatch) AllowOp(allows []string) bool {
-	return e2array.IncludeString(allows, h.Op)
+	return e2slice.IncludeString(allows, h.Op)
 }
 
 // AllowPath 要修改的属性是否在列表中
 func (h *HttpPatch) AllowPath(allows []string) bool {
-	return e2array.IncludeString(allows, h.Path)
+	return e2slice.IncludeString(allows, h.Path)
 }
 
 // NullBool bool 類型的擴展

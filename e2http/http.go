@@ -7,23 +7,28 @@ import (
 	"io"
 	"maps"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/e2u/e2util/e2exec"
 	"github.com/e2u/e2util/e2json"
 )
 
 type Context struct {
-	cli        *http.Client
-	ctx        context.Context
-	url        *url.URL
-	method     string
-	reqHeaders http.Header
-	// reqCookies []*http.Cookie
+	cli            *http.Client
+	ctx            context.Context
+	connectTimeout time.Duration // connectTimeout, readWriteTimeout
+	url            *url.URL
+	method         string
+	reqHeaders     http.Header
+	transport      *http.Transport
+
 	req     *http.Request
 	reqBody io.Reader
 
@@ -37,16 +42,19 @@ type Context struct {
 	toJsonPointer  any
 	outWriter      io.Writer
 	dumpReqWriter  io.Writer
-	dumpBody       bool
+	dumpReqBody    bool
+	dumpRespWriter io.Writer
+	dumpRespBody   bool
 }
 
 func Builder(ctx context.Context) *Context {
-	return &Context{
+	r := &Context{
 		cli:        &http.Client{},
 		ctx:        ctx,
 		method:     http.MethodGet,
 		reqHeaders: make(map[string][]string),
 	}
+	return r
 }
 
 func (r *Context) URL(u string) *Context {
@@ -54,6 +62,28 @@ func (r *Context) URL(u string) *Context {
 		r.url = v
 	} else {
 		r.appendErr(err)
+	}
+	return r
+}
+
+func (r *Context) ConnectTimeout(timeout time.Duration) *Context {
+	r.connectTimeout = timeout
+	if r.connectTimeout > 0 {
+		ct := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := net.DialTimeout(network, addr, r.connectTimeout)
+			if err != nil {
+				return nil, err
+			}
+			return conn, nil
+		}
+
+		if r.transport == nil {
+			r.transport = &http.Transport{
+				DialContext: ct,
+			}
+		} else {
+			r.transport.DialContext = ct
+		}
 	}
 	return r
 }
@@ -132,7 +162,13 @@ func (r *Context) Proxy(p string) *Context {
 		r.appendErr(err)
 		return r
 	}
-	r.cli.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	if r.transport == nil {
+		r.transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+		}
+	} else {
+		r.transport.Proxy = http.ProxyURL(proxyUrl)
+	}
 	return r
 }
 
@@ -145,8 +181,14 @@ func (r *Context) DumpRequest(w io.Writer, body bool) *Context {
 		}
 	} else {
 		r.dumpReqWriter = w
-		r.dumpBody = body
+		r.dumpReqBody = body
 	}
+	return r
+}
+
+func (r *Context) DumpResponse(w io.Writer, body bool) *Context {
+	r.dumpRespWriter = w
+	r.dumpRespBody = body
 	return r
 }
 
@@ -283,6 +325,10 @@ func (r *Context) Write(w io.Writer) *Context {
 }
 
 func (r *Context) Do() *Context {
+	if r.transport != nil {
+		r.cli.Transport = r.transport
+	}
+
 	if req, err := http.NewRequestWithContext(r.ctx, r.method, r.url.String(), r.reqBody); err == nil {
 		r.req = req
 	} else {
@@ -317,8 +363,6 @@ func (r *Context) Do() *Context {
 	}
 	r.respCookies = slices.Clone(resp.Cookies())
 
-	// resp.Cookies()
-
 	if b, err := io.ReadAll(resp.Body); err == nil {
 		r.respBody = b
 	} else {
@@ -341,7 +385,7 @@ func (r *Context) Do() *Context {
 	}
 
 	if r.dumpReqWriter != nil {
-		if b, err := httputil.DumpRequestOut(r.req, r.dumpBody); err == nil {
+		if b, err := httputil.DumpRequestOut(r.req, r.dumpReqBody); err == nil {
 			if _, err := io.Copy(r.dumpReqWriter, bytes.NewReader(b)); err != nil {
 				r.appendErr(err)
 				return r
@@ -351,6 +395,23 @@ func (r *Context) Do() *Context {
 			return r
 		}
 	}
+
+	if r.dumpRespWriter != nil {
+		if b, err := httputil.DumpResponse(resp, false); err == nil {
+
+			if _, err := io.Copy(r.dumpRespWriter, bytes.NewReader(b)); err != nil {
+				r.appendErr(err)
+				return r
+			}
+			if r.dumpRespBody {
+				e2exec.SilentError(r.dumpRespWriter.Write(r.respBody))
+			}
+		} else {
+			r.appendErr(err)
+			return r
+		}
+	}
+
 	return r
 }
 

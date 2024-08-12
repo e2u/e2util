@@ -1,36 +1,40 @@
 package e2conf
 
 import (
+	"maps"
 	"runtime"
+	"strings"
 
+	"github.com/e2u/e2util/e2map"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 /**
-[StorageDarwin]
-PhotosDir = "/Users/tk/Pictures/Wallpapers"
-BadgerDir = "./badger"
+[storage_darwin]
+photos_dir = "/Volumes/r1/images"
+badger_dir = "./badger"
 
-[StorageLinux]
-PhotosDir = "/mnt/s1/images"
-BadgerDir = "./badger"
+[storage_linux]
+photos_dir = "/mnt/s1/images"
+dadger_dir = "./badger"
 
-badgerDir, ok := cfg.GetStringMapStringByOS("Storage")["badgerdir"]
 
 */
 
-func getStringMapStringByOS(v *viper.Viper, key string) map[string]string {
-	mapKey := key + "_Darwin"
-	switch runtime.GOOS {
+func getStringMapByOS(v *viper.Viper, key string) e2map.Map {
+	mapKey := key + "_darwin"
+	switch strings.ToLower(runtime.GOOS) {
 	case "linux":
-		mapKey = key + "_Linux"
+		mapKey = key + "_linux"
 	case "darwin":
-		mapKey = key + "_Darwin"
+		mapKey = key + "_darwin"
 	case "windows":
 		logrus.Errorf("windows not yet supported")
 	default:
 		logrus.Errorf("Unknown operating system.")
 	}
-	return v.GetStringMapString(mapKey)
+	r := make(e2map.Map)
+	maps.Copy(r, v.GetStringMap(mapKey))
+	return r
 }

@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"path/filepath"
+	"strconv"
 
 	"github.com/e2u/e2util/e2conf/cache/e2redis"
 	"github.com/e2u/e2util/e2conf/e2http"
 	"github.com/e2u/e2util/e2db"
+	"github.com/e2u/e2util/e2map"
+	"github.com/e2u/e2util/e2os"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
@@ -44,6 +48,7 @@ type InitConfigInput struct {
 	ConfigName    string
 }
 
+//nolint:gochecknoinits
 func init() {
 	info := `
 Important Change of the config
@@ -102,9 +107,11 @@ func New[T *InitConfigInput | embed.FS](args T) *Config {
 	if len(input.Env) == 0 {
 		input.Env = env
 	}
+
 	if len(input.AddConfigPath) == 0 {
 		input.AddConfigPath = defaultPath
 	}
+
 	if len(input.ConfigName) == 0 {
 		input.ConfigName = "app-" + env
 	}
@@ -157,6 +164,13 @@ func New[T *InitConfigInput | embed.FS](args T) *Config {
 	setupGin()
 	setupLogrus()
 	setupSlog()
+
+	if appConf.Http != nil && appConf.Http.BaseUrl == "" {
+		eip, err := e2os.ExternalIP()
+		if err == nil && eip != "" {
+			appConf.Http.BaseUrl = "http://" + net.JoinHostPort(eip, strconv.Itoa(appConf.Http.Port))
+		}
+	}
 	return appConf
 }
 
@@ -257,10 +271,14 @@ func unmarshalAppConfig(v *viper.Viper) {
 	}
 }
 
-func (c *Config) GetStringMapStringByOS(key string) map[string]string {
-	return getStringMapStringByOS(c.Viper, key)
+func (c *Config) GetStringMapByOS(key string) e2map.Map {
+	return getStringMapByOS(c.Viper, key)
 }
 
 func (c *Config) Unmarshal(key string, p any) error {
 	return v.UnmarshalKey(key, &p)
+}
+
+func (c *Config) GetStringMap(key string) e2map.Map {
+	return c.Viper.GetStringMap(key)
 }
