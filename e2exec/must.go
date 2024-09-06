@@ -32,6 +32,32 @@ func SilentError(args ...any) {
 		return
 	}
 
+	if len(args) == 1 && args[0] != nil {
+		if err, ok := args[0].(error); ok && err != nil {
+			logrus.Errorf("e2exec.SilentError() error=%v", err)
+		}
+		return
+	}
+
+	pc, filename, line, _ := runtime.Caller(1)
+
+	switch err := args[len(args)-1].(type) {
+	case error:
+		if err != nil {
+			logrus.Errorf("e2exec.SilentError() error=%v in %s[%s:%d]", err, runtime.FuncForPC(pc).Name(), filename, line)
+		}
+	case nil:
+		return
+	default:
+		logrus.Warn("e2exec.SilentError() last parameter not an error type")
+	}
+}
+
+func SilentError_old(args ...any) {
+	if len(args) == 0 {
+		return
+	}
+
 	if len(args) == 1 && args[0] != nil && args[0].(error) != nil {
 		logrus.Errorf("e2exec.SilentError() error=%v", args[0])
 		return
