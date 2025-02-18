@@ -1,0 +1,91 @@
+[orm]
+writer = "host=127.0.0.1 port=5432 user=pgsql password=123456 dbname=database sslmode=disable TimeZone=UTC application_name=db"
+readers = [
+    "host=127.0.0.1 port=5432 user=pgsql password=123456 dbname=database sslmode=disable TimeZone=UTC application_name=db",
+]
+
+driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
+disable_auto_report = false
+enable_debug = false
+auto_create_database = true
+init_sqls = [
+    "CREATE EXTENSION citext"
+]
+
+# if had setting [orm.logger] then ignore
+sql_log_slow_threshold = 200
+sql_log_colorful = true
+sql_log_ignore_record_not_found_error = true
+
+
+[orm.logger]
+output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
+level = "info" # trace, debug, info, warn, error
+format = "json" # json, text
+disable_report_caller = false
+max_age = 365
+rotation_time = 86400
+disable_color = true
+environment_override_colors = true
+disable_quote = false
+disable_full_timestamp = false
+disable_quote_empty_fields = false
+disable_pad_level_text = false
+pretty_print = false
+
+[orm-pg1]
+#  extract config, in code
+# 	var orm1 e2db.Config
+#	if err := app.App.Viper.UnmarshalKey("ORM1", &orm1); err != nil {
+#		slog.Error("unmarshal key error", "error", err)
+#	}
+#	slog.Info("ORM1 config", "config", orm1)
+#
+writer = "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db"
+reader = [
+    "host=127.0.0.1 port=5432 user=postgres password=none dbname=database sslmode=disable TimeZone=UTC application_name=db",
+]
+
+[sqlite]
+writer = "file:db?mode=memory&cache=shared"
+reader = ["file:db?mode=memory&cache=shared"]
+
+
+[orm-sqlite1]
+writer = "file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"
+readers = ["file:crawler.db?cache=shared&journal_mode=WAL&temp_store=memory&synchronous=normal"]
+
+
+[http]
+address = "0.0.0.0"
+port = 8000
+base_url = "http://127.0.0.1:8000"
+
+[logger]
+output = "stdout" # stdout, stderr, file:///tmp/logs/app.%Y%m%d
+level = "info" # trace, debug, info, warn, error
+format = "json" # json, text
+disable_report_caller = false
+max_age = 365
+rotation_time = 86400
+disable_color = true
+environment_override_colors = true
+disable_quote = false
+disable_full_timestamp = false
+disable_quote_empty_fields = false
+disable_pad_level_text = false
+pretty_print = false
+
+[cache]
+enable = false
+type = "redis" # redis | memory
+dsn = "redis://127.0.0.1:6379/0"
+
+
+[storage_darwin]
+photos_dir = "/Volumes/r1/images"
+badger_dir = "./badger"
+
+[storage_linux]
+photos_dir = "/mnt/s1/images"
+dadger_dir = "./badger"
