@@ -15,12 +15,18 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/e2u/e2util/e2exec"
 	h "github.com/e2u/e2util/e2html"
+	"github.com/e2u/e2util/e2io"
+	"github.com/e2u/e2util/e2os"
+	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/contrib/ginrus"
 	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -32,23 +38,32 @@ import (
 var favicon []byte
 
 type Option struct {
-	Root                   string
+	Root                   string // http url root
 	StaticFiles            []*StaticFiles
 	DisabledPprof          bool
 	PprofPathPrefix        string
 	DisableHealth          bool
+	DisableRecovery        bool
 	SkipLogPaths           []string
 	HealthPathPrefix       string
 	Engine                 *gin.Engine
-	NoRouteStaticFiles     []*StaticFiles
 	NoRouteProxyBackendURL string
 	DisableGzip            bool
-	HTMLTemplate           *template.Template
+	LogrusLogger           *logrus.Logger
+	Template               *Template
+}
+
+type Template struct {
+	fs.FS
+	FuncMap   template.FuncMap // or e2gin.FuncMap = template.FuncMap{"funcName":func()string{return "hello"}}
+	Option    TemplatesOption
+	LocalPath string // only using on dev mode
 }
 
 type StaticFiles struct {
 	fs.FS
-	HttpPath string
+	HttpPath  string // same to local path if leave blank
+	LocalPath string // only using on dev mode
 }
 
 func DefaultEngine(opt *Option) *gin.Engine {
@@ -64,29 +79,51 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		eng = opt.Engine
 	}
 
-	if opt.HTMLTemplate != nil {
-		eng.SetHTMLTemplate(opt.HTMLTemplate)
+	if opt.Template == nil {
+		opt.Template = &Template{
+			Option: TemplatesOption{
+				TrimTags:   false,
+				MinifyHTML: false,
+			},
+			LocalPath: "./templates",
+		}
+	}
+
+	if topt := opt.Template; topt != nil {
+		if topt.FS != nil {
+			eng.SetHTMLTemplate(e2exec.Must(ParseTemplates(topt.FS, topt.FuncMap, topt.Option)))
+		}
+
+		if topt.LocalPath == "" {
+			topt.LocalPath = "./templates"
+		}
+
+		if gin.Mode() != gin.ReleaseMode && e2os.FileExists(topt.LocalPath) {
+			eng.HTMLRender = NewDynamicHTMLRender(topt.LocalPath, topt.FuncMap, topt.Option)
+		}
 	}
 
 	if opt.Root == "" {
 		opt.Root = "/"
 	}
 
-	if opt.PprofPathPrefix == "" {
-		opt.HealthPathPrefix = "/__app"
+	if opt.LogrusLogger == nil || reflect.ValueOf(opt.LogrusLogger).IsNil() {
+		eng.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339Nano, false))
+	} else {
+		eng.Use(ginrus.Ginrus(opt.LogrusLogger, time.RFC3339Nano, false))
 	}
 
-	if opt.HealthPathPrefix == "" {
-		opt.HealthPathPrefix = "/__app"
-	}
+	if !opt.DisableHealth {
+		if opt.HealthPathPrefix == "" {
+			opt.HealthPathPrefix = "/__app"
+		}
 
-	hg := eng.Group(opt.Root)
-	{
-		hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
-			SkipPaths: []string{opt.Root + "/_health", "/_health"},
-		}))
+		hg := eng.Group(opt.Root)
+		{
+			hg.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+				SkipPaths: []string{opt.Root + "/_health", "/_health"},
+			}))
 
-		if !opt.DisableHealth {
 			hg.GET(opt.HealthPathPrefix+"/_health", func(c *gin.Context) {
 				c.String(http.StatusOK, "OK")
 			})
@@ -97,18 +134,83 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		}
 	}
 
-	eng.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, false))
-	if !opt.DisableGzip {
-		eng.Use(gzip.Gzip(gzip.DefaultCompression))
+	if !opt.DisabledPprof {
+		startPprof(eng, opt)
 	}
-	eng.Use(gin.CustomRecovery(customRecovery))
+
+	if !opt.DisableRecovery {
+		eng.Use(gin.CustomRecovery(customRecovery))
+	}
+
 	eng.RemoveExtraSlash = true
 	eng.HandleMethodNotAllowed = true
 
-	if opt.DisabledPprof {
-		return eng
+	if len(opt.StaticFiles) > 0 {
+		var watchingStatic sync.Map
+		for _, file := range opt.StaticFiles {
+			if file.HttpPath == "" && file.LocalPath != "" {
+				file.HttpPath = cleanHttpPath(file.LocalPath)
+			}
+			var ffs fs.FS
+			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(file.LocalPath) {
+				ffs = os.DirFS(file.LocalPath)
+				if _, loaded := watchingStatic.LoadOrStore(file.LocalPath, struct{}{}); !loaded {
+					go e2io.WatchDir(file.LocalPath, func(s string, event fsnotify.Event) {
+						ffs = os.DirFS(file.LocalPath)
+						settingEtag(ffs, file.HttpPath)
+					})
+				}
+			} else {
+				ffs = file.FS
+			}
+			registerStaticFiles(eng, opt, ffs, file.HttpPath)
+			settingEtag(ffs, file.HttpPath)
+		}
 	}
 
+	// only the last one NoRoute method will be executed
+	noRouteChain := []gin.HandlerFunc{
+		noRouteStaticIndex(opt.StaticFiles),
+		noRouteFavicon(),
+		noRouteProxy(opt),
+	}
+
+	eng.NoRoute(noRouteChain...)
+
+	if !opt.DisableGzip {
+		eng.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+
+	return eng
+}
+
+func loadIndexPage(sfs []*StaticFiles) []byte {
+	for _, fileName := range []string{"index.html", "index.htm"} {
+		for _, sf := range sfs {
+			if sf.HttpPath != "/" {
+				continue
+			}
+			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(sf.LocalPath) {
+				if b, err := os.ReadFile(filepath.Join(sf.LocalPath, fileName)); err == nil {
+					return b
+				}
+			}
+			if f, err := sf.Open(fileName); err == nil {
+				if b, rErr := io.ReadAll(f); rErr == nil {
+					_ = f.Close()
+					return b
+				}
+				_ = f.Close()
+			}
+		}
+	}
+	return nil
+}
+
+func startPprof(eng *gin.Engine, opt *Option) {
+	if opt.PprofPathPrefix == "" {
+		opt.PprofPathPrefix = cleanHttpPath("/__app")
+	}
 	var once sync.Once
 	go func() {
 		once.Do(func() {
@@ -128,7 +230,7 @@ func DefaultEngine(opt *Option) *gin.Engine {
 					"pprof_url": pprofUrl,
 					"command": []string{
 						fmt.Sprintf("ssh -N -L %d:127.0.0.1:%d <ssh-host>", port, port),
-						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/%s/debug/pprof/profile -seconds 30", port, opt.PprofPathPrefix),
+						fmt.Sprintf("go tool pprof -http=:18081 http://127.0.0.1:%d/debug/pprof/profile -seconds 30", port),
 					},
 				})
 			})
@@ -139,43 +241,9 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			}
 		})
 	}()
-
-	if len(opt.StaticFiles) > 0 {
-		for _, file := range opt.StaticFiles {
-			registerStaticFiles(eng, file.FS, file.HttpPath)
-			// AddEmbedStaticFs(file.FS, eng, file.HttpPath)
-		}
-	}
-
-	// only the last one NoRoute method will be executed
-	noRouteChain := []gin.HandlerFunc{
-		noRouteStaticIndex(opt.StaticFiles),
-		noRouteFavicon(),
-	}
-
-	eng.NoRoute(noRouteChain...)
-	return eng
-}
-
-func loadIndexPage(sfs []*StaticFiles) []byte {
-	var indexPage []byte
-	for _, sf := range sfs {
-		if sf.HttpPath != "/" {
-			continue
-		}
-		if f, err := sf.Open("index.html"); err == nil {
-			if b, rErr := io.ReadAll(f); rErr == nil {
-				indexPage = make([]byte, len(b))
-				copy(indexPage, b)
-			}
-			_ = f.Close()
-		}
-	}
-	return indexPage
 }
 
 // process staticFS / 301 redirect too many times issues
-
 func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 	indexPageByte := loadIndexPage(sfs)
 	return func(c *gin.Context) {
@@ -190,6 +258,7 @@ func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 func noRouteFavicon() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.RequestURI == "/favicon.ico" {
+			c.Header("Cache-Control", "public, max-age=3600, must-revalidate")
 			c.Data(http.StatusOK, "image/x-icon", favicon)
 			return
 		}
@@ -226,14 +295,15 @@ func hostPortActive(host string) bool {
 	return false
 }
 
-func StartAndStop(start func(), stop func()) {
+func StartAndStopHttp(eng *gin.Engine, address string, port int, stop func()) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		fmt.Println("Server started. Press Ctrl+C to stop.")
-		start()
+		logrus.Infof("Server started. Press Ctrl+C to stop.")
+		if err := eng.Run(fmt.Sprintf("%s:%d", address, port)); err != nil {
+			logrus.Fatal(err)
+		}
 	}()
-
 	<-sigChan
 	fmt.Println("Received SIGINT or SIGTERM. Shutting down...")
 	stop()
@@ -272,8 +342,18 @@ func customRecovery(c *gin.Context, err any) {
 		),
 	).String()
 
-	c.Writer.WriteHeader(http.StatusInternalServerError)
-	c.Writer.Header().Set("X-Track-Id", trackId)
-	c.Writer.Header().Set("Content-Type", "text/html")
+	c.Header("X-Track-Id", trackId)
+	c.Header("Content-Type", "text/html")
 	_, _ = c.Writer.WriteString(h.Doctype("html") + body)
+	c.AbortWithStatus(http.StatusInternalServerError)
+}
+
+func errorPage(title string, err error) string {
+	return h.T("html", h.A("lang", "en"),
+		h.T("head", h.T("title", h.Text("Error"))),
+		h.T("body",
+			h.T("h1", title),
+			h.T("pre", h.Text(err.Error())),
+		),
+	).String()
 }

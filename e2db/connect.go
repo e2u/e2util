@@ -3,11 +3,11 @@ package e2db
 import (
 	"crypto/rand"
 	"fmt"
-	"log/slog"
 	"math/big"
 	"regexp"
 	"strings"
 
+	"github.com/e2u/e2util/e2logrus"
 	"github.com/e2u/e2util/e2model"
 	"github.com/e2u/e2util/e2regexp"
 	"github.com/glebarez/sqlite"
@@ -30,30 +30,32 @@ type Option struct {
 
 type Config struct {
 	*gorm.Config
-	Writer             string   `mapstructure:"writer"`
-	Reader             []string `mapstructure:"reader"`
-	DBLogLevel         string   `mapstructure:"log_level"`
-	LogAdapter         string   `mapstructure:"log_adapter"`
-	Driver             string   `mapstructure:"driver"`
-	DisableAutoReport  bool     `mapstructure:"disable_auto_report"`
-	EnableDebug        bool     `mapstructure:"enable_debug"`
-	AutoCreateDatabase bool     `mapstructure:"auto_create_database"`
-	InitSqls           []string `mapstructure:"init_sqls"`
+	Writer                          string           `mapstructure:"writer"`
+	Readers                         []string         `mapstructure:"readers"`
+	Driver                          string           `mapstructure:"driver"`
+	DisableAutoReport               bool             `mapstructure:"disable_auto_report"`
+	EnableDebug                     bool             `mapstructure:"enable_debug"`
+	AutoCreateDatabase              bool             `mapstructure:"auto_create_database"`
+	InitSqls                        []string         `mapstructure:"init_sqls"`
+	SQLLogSlowThreshold             int              `mapstructure:"sql_log_slow_threshold"`
+	SQLLogIgnoreRecordNotFoundError bool             `mapstructure:"sql_log_ignore_record_not_found_error"`
+	SQLLogColorful                  bool             `mapstructure:"sql_log_colorful"`
+	LoggerConfig                    *e2logrus.Config `mapstructure:"logger"`
 }
 
 func New(cfg *Config) *Connect {
 	var err error
 	var primaryDialector gorm.Dialector
 	var slaveDialector []gorm.Dialector
-	conn := &Connect{
-		Config: cfg,
-	}
-	log := NewLogger(cfg.DBLogLevel, cfg.LogAdapter)
 
 	if cfg.Config == nil {
-		cfg.Config = &gorm.Config{
-			Logger: log,
-		}
+		cfg.Config = &gorm.Config{}
+	}
+
+	cfg.Config.Logger = newLogger(cfg)
+
+	conn := &Connect{
+		Config: cfg,
 	}
 
 	switch cfg.Driver {
@@ -86,7 +88,7 @@ func New(cfg *Config) *Connect {
 			primaryDialector = mysql.Open(cfg.Writer)
 		}
 
-		for _, dsn := range cfg.Reader {
+		for _, dsn := range cfg.Readers {
 			slaveDialector = append(slaveDialector, mysql.Open(dsn))
 		}
 
@@ -97,7 +99,7 @@ func New(cfg *Config) *Connect {
 			primaryDialector = postgres.Open(cfg.Writer)
 		}
 
-		for _, dsn := range cfg.Reader {
+		for _, dsn := range cfg.Readers {
 			slaveDialector = append(slaveDialector, postgres.Open(dsn))
 		}
 	case "sqlite", "go-sqlite":
@@ -106,7 +108,7 @@ func New(cfg *Config) *Connect {
 		if cfg.Writer != "" {
 			primaryDialector = sqlite.Open(cfg.Writer)
 		}
-		for _, dsn := range cfg.Reader {
+		for _, dsn := range cfg.Readers {
 			slaveDialector = append(slaveDialector, sqlite.Open(dsn))
 		}
 	}
@@ -132,7 +134,7 @@ func New(cfg *Config) *Connect {
 
 		conn.db, err = gorm.Open(primaryDialector, cfg.Config)
 		if err != nil {
-			panic(err)
+			logrus.Panic(err)
 		}
 	}
 
@@ -152,7 +154,7 @@ func New(cfg *Config) *Connect {
 			conn.roDb = append(conn.roDb, c)
 		}
 		if len(slaveDialector) > 0 && len(conn.roDb) == 0 {
-			panic(fmt.Errorf("no any slave connections"))
+			logrus.Panic("no any slave connections")
 		}
 	}
 
@@ -228,14 +230,14 @@ func (c *Connect) DebugRO() *gorm.DB {
 
 func (c *Connect) AutoMigrate(dst ...interface{}) {
 	if err := c.DebugRW().AutoMigrate(dst...); err != nil {
-		slog.Error("gorm auto migrate model error", "error", err, "model", dst)
+		logrus.Errorf("gorm auto migrate model error=%v, model=%v", err, dst)
 	}
 }
 
 func (c *Connect) CreateSchema(schemas ...string) {
 	for _, schema := range schemas {
 		if err := c.DebugRW().Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)).Error; err != nil {
-			slog.Error("gorm create schema error", "error", err, "schema", schema)
+			logrus.Errorf("gorm create schema error=%v, model=%v", err, schema)
 		}
 	}
 }

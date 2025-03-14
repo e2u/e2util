@@ -76,7 +76,7 @@ func (f *File) Prepare() error {
 
 	bc, err := io.ReadAll(f.Reader)
 	if err != nil {
-		logrus.WithField("scope", "Prepare").Errorf("read File.Reader failed, error=%v", err)
+		logrus.WithField("scope", "Prepare").Errorf("read File.Readers failed, error=%v", err)
 		return err
 	}
 	f.content = e2slice.Copy(bc)

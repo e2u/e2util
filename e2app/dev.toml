@@ -1,3 +1,16 @@
+[app]
+name = "App Name"
+tags = ["golang", "viper", "config"]
+abc = "ffefef"
+ccc = 12345
+secret_key = "c2VjcmV0X2tleQo="
+
+[app.settings]
+debug = true
+timeout = 30
+theme = "dark"
+
+
 [orm]
 writer = "host=127.0.0.1 port=5432 user=pgsql password=123456 dbname=database sslmode=disable TimeZone=UTC application_name=db"
 readers = [

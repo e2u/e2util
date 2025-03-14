@@ -20,13 +20,15 @@ import (
 
 type Context struct {
 	context.Context
-	AppName string
-	Env     string
-	DB      *e2db.Connect
-	Cache   *e2cache.Connect
-	Http    *e2http.Config
+	Env   string
+	App   *AppConfig
+	DB    *e2db.Connect
+	Cache *e2cache.Connect
+	Http  *e2http.Config
 }
+
 type DefaultConfig struct {
+	App    *AppConfig       `mapstructure:"app"`
 	Orm    *e2db.Config     `mapstructure:"orm"`
 	Http   *e2http.Config   `mapstructure:"http"`
 	Logger *e2logrus.Config `mapstructure:"logger"`
@@ -36,6 +38,7 @@ type DefaultConfig struct {
 func parseEnvAndFlags() {
 	viper.AutomaticEnv()
 	viper.SetConfigType("toml")
+	viper.SetDefault("env", "dev")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	pflag.String("app-name", "", "Setting app name")
 	pflag.String("env", "dev", "Setting the environment to use. [dev|test|prod]")
@@ -61,30 +64,32 @@ func parseEnvAndFlags() {
 }
 
 var once sync.Once
-var configFS embed.FS
 
-func SetConfigFS(fs embed.FS) {
-	configFS = fs
-}
-func New(ctx context.Context) *Context {
+func New(args ...any) *Context {
 	var c *Context
 	once.Do(func() {
-		c = newContext(ctx)
+		c = newContext(args)
 	})
 	return c
 }
 
-func newContext(ctx context.Context) *Context {
-	rc := &Context{
-		Context: ctx,
+func newContext(args ...any) *Context {
+	var configFS embed.FS
+	var ctx context.Context
+	for _, arg := range args {
+		if v, ok := arg.(embed.FS); ok && !reflect.ValueOf(arg).IsNil() {
+			configFS = v
+		}
+		if v, ok := arg.(context.Context); ok && !reflect.ValueOf(arg).IsNil() {
+			ctx = v
+		}
 	}
-	viper.SetDefault("env", "dev")
-	viper.SetConfigType("toml")
-
 	parseEnvAndFlags()
 
-	rc.Env = viper.GetString("env")
-	rc.AppName = viper.GetString("app-name")
+	rc := &Context{
+		Context: ctx,
+		Env:     viper.GetString("env"),
+	}
 
 	if cfgFile := viper.GetString("config"); cfgFile != "" {
 		logrus.Info("Loading config file")
@@ -111,6 +116,7 @@ func newContext(ctx context.Context) *Context {
 			logrus.Fatal(err)
 		}
 	}
+
 	cfg := &DefaultConfig{}
 
 	if err := viper.Unmarshal(cfg); err != nil {
@@ -126,17 +132,25 @@ func newContext(ctx context.Context) *Context {
 		}
 	}
 
+	if cfg.App != nil {
+		rc.App = cfg.App
+	} else {
+		rc.App = &AppConfig{}
+	}
+
+	if v := viper.GetString("app-name"); v != "" {
+		rc.App.Name = v
+	}
+
 	if cfg.Orm != nil {
 		rc.DB = e2db.New(cfg.Orm)
 	}
 
-	if cfg.Cache != nil {
-		if cfg.Cache.Enable {
-			rc.Cache = e2cache.New(cfg.Cache)
-		} else {
-			cfg.Cache.Type = "fake"
-			rc.Cache = e2cache.New(cfg.Cache)
-		}
+	if cfg.Cache != nil && cfg.Cache.Enable {
+		rc.Cache = e2cache.New(cfg.Cache)
+	} else {
+		cfg.Cache.Type = "fake"
+		rc.Cache = e2cache.New(cfg.Cache)
 	}
 
 	if cfg.Http != nil {
@@ -145,77 +159,3 @@ func newContext(ctx context.Context) *Context {
 
 	return rc
 }
-
-// func initLogger(cfg *e2logrus.Config) {
-//	if cfg.Format == "json" {
-//		logrus.SetFormatter(&logrus.JSONFormatter{
-//			TimestampFormat:   time.RFC3339Nano,
-//			DisableTimestamp:  cfg.DisableFullTimestamp,
-//			DisableHTMLEscape: cfg.DisableHTMLEscape,
-//			DataKey:           e2var.NeverDefault(cfg.DataKey, "fields"),
-//			PrettyPrint:       cfg.PrettyPrint,
-//		})
-//	} else {
-//		logrus.SetFormatter(&logrus.TextFormatter{
-//			ForceColors:               !cfg.DisableColor, //
-//			DisableColors:             cfg.DisableColor,  //
-//			ForceQuote:                !cfg.DisableQuote,
-//			DisableQuote:              cfg.DisableQuote,
-//			EnvironmentOverrideColors: cfg.EnvironmentOverrideColors, //
-//			DisableTimestamp:          cfg.DisableFullTimestamp,
-//			FullTimestamp:             !cfg.DisableFullTimestamp,
-//			TimestampFormat:           time.RFC3339Nano,
-//			PadLevelText:              !cfg.DisablePadLevelText,
-//			QuoteEmptyFields:          !cfg.DisableQuoteEmptyFields, //
-//		})
-//	}
-//
-//	logrus.SetReportCaller(!cfg.DisableReportCaller)
-//
-//	rotationTime := cfg.RotationTime
-//	if rotationTime <= 0 {
-//		rotationTime = 86400
-//	}
-//	maxAge := cfg.MaxAge
-//	if maxAge <= 0 {
-//		maxAge = 365
-//	}
-//
-//	logLevelStr := cfg.Level
-//	if logLevelStr == "" {
-//		logLevelStr = logrus.InfoLevel.String()
-//	}
-//
-//	logLevel, err := logrus.ParseLevel(logLevelStr)
-//	if err != nil {
-//		logLevel = logrus.InfoLevel
-//	}
-//	logrus.SetLevel(logLevel)
-//
-//	output := cfg.Output
-//	if output == "" {
-//		output = "stdout"
-//	}
-//	if strings.HasPrefix(output, "file://") {
-//		logPath := output[7:]
-//		linkName := filepath.Join(filepath.Dir(logPath), "current")
-//		rl, err := rotatelogs.New(logPath,
-//			rotatelogs.WithMaxAge(24*time.Hour*time.Duration(maxAge)),
-//			rotatelogs.WithRotationTime(time.Second*time.Duration(rotationTime)),
-//			rotatelogs.WithLinkName(linkName),
-//		)
-//		if err != nil {
-//			logrus.Fatal(err)
-//		}
-//		logrus.SetOutput(rl)
-//	} else {
-//		logrus.SetOutput(os.Stdout)
-//	}
-//	logrus.AddHook(&e2logrus.SeqHook{})
-//
-//	logrus.Trace("active logrus TRACE level")
-//	logrus.Debug("active logrus DEBUG level")
-//	logrus.Info("active logrus INFO level")
-//	logrus.Warn("active logrus WARN level")
-//	logrus.Error("active logrus ERROR level")
-//}

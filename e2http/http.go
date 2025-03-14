@@ -398,7 +398,6 @@ func (r *Context) Do() *Context {
 
 	if r.dumpRespWriter != nil {
 		if b, err := httputil.DumpResponse(resp, false); err == nil {
-
 			if _, err := io.Copy(r.dumpRespWriter, bytes.NewReader(b)); err != nil {
 				r.appendErr(err)
 				return r

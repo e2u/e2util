@@ -88,3 +88,24 @@ func Test_typeof(t *testing.T) {
 	m["d"] = "hello"
 	test(m)
 }
+
+func TestIfElseFunc(t *testing.T) {
+	t.Run("should run f1", func(t *testing.T) {
+		IfElseFunc("a", "a", func() {
+			fmt.Println("f1")
+		}, func() {
+			fmt.Println("f2")
+			t.Fatal()
+		})
+	})
+
+	t.Run("should run f2", func(t *testing.T) {
+		IfElseFunc("a", "b", func() {
+			fmt.Println("f1")
+			t.Fatal()
+		}, func() {
+			fmt.Println("f2")
+		})
+	})
+
+}

@@ -3,8 +3,15 @@ package e2logrus
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"sync/atomic"
+	"time"
 
+	"github.com/e2u/e2util/e2var"
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,6 +38,25 @@ type Config struct {
 	Writer                    io.Writer `mapstructure:"-"`
 }
 
+func defaultConfig() *Config {
+	return &Config{
+		Output:                    "stdout",
+		Level:                     "level",
+		MaxAge:                    365,
+		RotationTime:              86400,
+		Format:                    "text",
+		DisableReportCaller:       false,
+		DisableColor:              false,
+		EnvironmentOverrideColors: true,
+		DisableQuote:              false,
+		DisableFullTimestamp:      false,
+		DisableQuoteEmptyFields:   false,
+		DisablePadLevelText:       false,
+		PrettyPrint:               false,
+		DisableHTMLEscape:         false,
+	}
+}
+
 func CloneLogrus(orig *logrus.Logger) *logrus.Logger {
 	newLogger := logrus.New()
 	newLogger.SetFormatter(orig.Formatter)
@@ -39,50 +65,6 @@ func CloneLogrus(orig *logrus.Logger) *logrus.Logger {
 	newLogger.SetLevel(orig.Level)
 	return newLogger
 }
-
-//func DefaultConfig() *Config {
-//	return &Config{
-//		Output:       "stdout",
-//		Level:        "debug",
-//		MaxAge:       365,
-//		RotationTime: 86400,
-//		Format:       "json",
-//	}
-//}
-
-// NewWriter 返回一个 writer,可以在 logrus 中使用
-//func NewWriter(config *Config) (io.Writer, error) {
-//	switch config.Output {
-//	case "stdout":
-//		return os.Stdout, nil
-//	case "stderr":
-//		return os.Stderr, nil
-//	}
-//
-//	if !strings.HasPrefix(config.Output, `file://`) {
-//		return os.Stdout, nil
-//	}
-//
-//	logPath := strings.ReplaceAll(config.Output, `file://`, "")
-//	linkName := filepath.Join(filepath.Dir(logPath), "current")
-//
-//	// 默认保留1年日志
-//	if config.MaxAge == 0 {
-//		config.MaxAge = 365
-//	}
-//
-//	if config.RotationTime <= 0 {
-//		config.RotationTime = 86400
-//	}
-//
-//	rl, err := rotatelogs.New(logPath,
-//		rotatelogs.WithMaxAge(24*time.Hour*time.Duration(config.MaxAge)),
-//		rotatelogs.WithRotationTime(time.Second*time.Duration(config.RotationTime)),
-//		rotatelogs.WithLinkName(linkName),
-//	)
-//
-//	return rl, err
-//}
 
 var seqNum uint64
 
@@ -96,4 +78,93 @@ func (h *SeqHook) Fire(entry *logrus.Entry) error {
 	seq := atomic.AddUint64(&seqNum, 1)
 	entry.Data["seq"] = fmt.Sprintf("0x%016x", seq)
 	return nil
+}
+
+func NewLogger(cfg *Config) *logrus.Logger {
+	cfg = e2var.NullThen(cfg, defaultConfig(), cfg)
+
+	log := logrus.New()
+	if cfg.Format == "json" {
+		log.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat:   time.RFC3339Nano,
+			DisableTimestamp:  cfg.DisableFullTimestamp,
+			DisableHTMLEscape: cfg.DisableHTMLEscape,
+			DataKey:           e2var.ValueOrDefault(cfg.DataKey, "fields"),
+			PrettyPrint:       cfg.PrettyPrint,
+		})
+	} else {
+		log.SetFormatter(&logrus.TextFormatter{
+			ForceColors:               !cfg.DisableColor, //
+			DisableColors:             cfg.DisableColor,  //
+			ForceQuote:                !cfg.DisableQuote,
+			DisableQuote:              cfg.DisableQuote,
+			EnvironmentOverrideColors: cfg.EnvironmentOverrideColors, //
+			DisableTimestamp:          cfg.DisableFullTimestamp,
+			FullTimestamp:             !cfg.DisableFullTimestamp,
+			TimestampFormat:           time.RFC3339Nano,
+			PadLevelText:              !cfg.DisablePadLevelText,
+			QuoteEmptyFields:          !cfg.DisableQuoteEmptyFields, //
+		})
+	}
+
+	log.SetReportCaller(!cfg.DisableReportCaller)
+
+	rotationTime := cfg.RotationTime
+	if rotationTime <= 0 {
+		rotationTime = 86400
+	}
+	maxAge := cfg.MaxAge
+	if maxAge <= 0 {
+		maxAge = 365
+	}
+
+	logLevelStr := cfg.Level
+	if logLevelStr == "" {
+		logLevelStr = logrus.InfoLevel.String()
+	}
+
+	logLevel, err := logrus.ParseLevel(logLevelStr)
+	if err != nil {
+		logLevel = logrus.InfoLevel
+	}
+	log.SetLevel(logLevel)
+
+	output := cfg.Output
+	if output == "" {
+		output = "stdout"
+	}
+	if strings.HasPrefix(output, "file://") {
+		logPath := output[7:]
+		linkName := filepath.Join(filepath.Dir(logPath), "current")
+		fileName := filepath.Base(logPath)
+		if fileName != "" {
+			re := regexp.MustCompile(`%[a-zA-Z]+`)
+			fileName = re.ReplaceAllString(fileName, "")
+			fileName = strings.ReplaceAll(fileName, ".", "")
+			fileName = strings.ReplaceAll(fileName, "-", "")
+			fileName = strings.ReplaceAll(fileName, " ", "")
+			linkName = filepath.Join(filepath.Dir(logPath), fileName+"-current")
+		}
+
+		rl, err := rotatelogs.New(logPath,
+			rotatelogs.WithMaxAge(24*time.Hour*time.Duration(maxAge)),
+			rotatelogs.WithRotationTime(time.Second*time.Duration(rotationTime)),
+			rotatelogs.WithLinkName(linkName),
+		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetOutput(rl)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+	log.AddHook(&SeqHook{})
+
+	log.Trace("active logrus TRACE level")
+	log.Debug("active logrus DEBUG level")
+	log.Info("active logrus INFO level")
+	log.Warn("active logrus WARN level")
+	log.Error("active logrus ERROR level")
+	return log
 }
