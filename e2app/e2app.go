@@ -145,12 +145,14 @@ func newContext(args ...any) *Context {
 	if cfg.Orm != nil {
 		rc.DB = e2db.New(cfg.Orm)
 	}
-
-	if cfg.Cache != nil && cfg.Cache.Enable {
-		rc.Cache = e2cache.New(cfg.Cache)
-	} else {
-		cfg.Cache.Type = "fake"
-		rc.Cache = e2cache.New(cfg.Cache)
+	
+	if cfg.Cache != nil {
+		if cfg.Cache.Enable {
+			rc.Cache = e2cache.New(cfg.Cache)
+		} else {
+			cfg.Cache.Type = "fake"
+			rc.Cache = e2cache.New(cfg.Cache)
+		}
 	}
 
 	if cfg.Http != nil {
