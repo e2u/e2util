@@ -23,10 +23,10 @@ type Trace struct {
 // Result represents the outcome of a task's execution.
 // It includes the computed value, any error, execution trace, and optionally the original argument.
 type Result[Out any] struct {
-	Value Out            `json:"value,omitempty"` // The result value of the task, type-safe via generics
-	Err   error          `json:"err,omitempty"`   // Error if the task failed, nil if successful
-	Arg   Arg[any]       `json:"arg,omitempty"`   // Original input argument, included only if Task.RetainInput is true
-	Trace `json:"trace"` // Embedded Trace struct for execution metadata
+	Value Out      `json:"value,omitempty"` // The result value of the task, type-safe via generics
+	Err   error    `json:"err,omitempty"`   // Error if the task failed, nil if successful
+	Arg   Arg[any] `json:"arg,omitempty"`   // Original input argument, included only if Task.RetainInput is true
+	Trace `json:"trace"`                    // Embedded Trace struct for execution metadata
 }
 
 // Arg holds the input data for a task.
@@ -166,18 +166,18 @@ func Exec[In, Out any](ctx context.Context, maxConcurrency int, tasks <-chan Tas
 			select {
 			case <-ctx.Done():
 				wg.Wait()
-				logrus.Info("Context done, closing result channel")
+				logrus.WithField("func", "e2concurrent.Exec").Debug("Context done, closing result channel")
 				close(result)
 				return
 			case task, ok := <-tasks:
 				if !ok {
 					wg.Wait()
-					logrus.Info("Tasks channel closed, closing result channel")
+					logrus.WithField("func", "e2concurrent.Exec").Debug("Tasks channel closed, closing result channel")
 					close(result)
 					return
 				}
 				if err := sem.Acquire(ctx, 1); err != nil {
-					logrus.Errorf("Failed to acquire semaphore: %v", err)
+					logrus.WithField("func", "e2concurrent.Exec").Errorf("Failed to acquire semaphore: %v", err)
 					r := Result[Out]{
 						Err: err,
 						Trace: Trace{

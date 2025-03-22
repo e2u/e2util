@@ -2,7 +2,9 @@ package e2concurrent
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -70,5 +72,32 @@ func (w *worker) Run(arg Arg[string]) Result[processResult] {
 	time.Sleep(sleepTime)
 	return Result[processResult]{
 		Value: processResult{Output: "Processed: " + arg.Value},
+	}
+}
+
+type DummyWorker struct{}
+
+func (w *DummyWorker) Run(arg Arg[string]) Result[string] {
+	// 模擬 CPU 密集型任務
+	start := time.Now()
+	for time.Since(start) < 1*time.Second {
+		// Busy loop
+	}
+	return Result[string]{Value: "Done: " + arg.Value}
+}
+
+func Test_c20(t *testing.T) {
+	ctx := context.Background()
+	tasks := make(chan Task[string, string], 100)
+	go func() {
+		for i := 0; i < 2000; i++ {
+			tasks <- NewTask(&DummyWorker{}, fmt.Sprintf("Task%d", i))
+		}
+		close(tasks)
+	}()
+
+	results := Exec(ctx, runtime.NumCPU(), tasks, 10)
+	for r := range results {
+		fmt.Println(r.Value, r.Err)
 	}
 }
