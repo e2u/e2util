@@ -1,111 +1,194 @@
 package e2var
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
 )
 
-func Test_IfElse(t *testing.T) {
-	t.Run("should return r1", func(t *testing.T) {
-		v1 := "abc"
-		v2 := "abc"
-		r1 := 123
-		r2 := 456
-		if IfElse(v1, v2, r1, r2) != r1 {
-			t.Fatalf("IfElse(%v, %v, %v, %v) should return %v", v1, v2, r1, r2, r1)
-		}
-	})
+func TestMustStringValue(t *testing.T) {
+	tests := []struct {
+		input    *string
+		expected string
+	}{
+		{nil, ""},
+		{P("hello"), "hello"},
+	}
 
-	t.Run("should return r2", func(t *testing.T) {
-		v1 := "abc"
-		v2 := "abc"
-		r1 := "ABC"
-		r2 := "EEE"
-		if IfElse(v1, v2, r1, r2) != r1 {
-			t.Fatalf("IfElse(%v, %v, %v, %v) should return %v", v1, v2, r1, r2, r2)
-		}
-	})
-}
-
-func Test_ExpectOrDefault(t *testing.T) {
-
-	t.Run("should return v2", func(t *testing.T) {
-		v1 := 10
-		v2 := "abc"
-		r, _ := ExpectOrDefault(v1, v2)
-		if r != v2 {
-			t.Fatalf("Test_ExpectOrDefault failed, expect %v, got %v", v2, r)
-		}
-	})
-
-	t.Run("should return v1", func(t *testing.T) {
-		v1 := "ABCC"
-		v2 := "abc"
-		r, _ := ExpectOrDefault(v1, v2)
-		if r != v1 {
-			t.Fatalf("Test_ExpectOrDefault failed, expect %v, got %v", v1, r)
-		}
-	})
-
-	t.Run("should return v2", func(t *testing.T) {
-		var v1 map[string]any
-		v2 := "abc"
-		r, _ := ExpectOrDefault(v1, v2)
-		if r != v2 {
-			t.Fatalf("Test_ExpectOrDefault failed, expect %v, got %v", v1, r)
-		}
-	})
-}
-
-func test(m map[string]interface{}) {
-	for k, v := range m {
-		rt := reflect.TypeOf(v)
-		rv := reflect.ValueOf(v)
-		switch rt.Kind() {
-		case reflect.Slice:
-			fmt.Println(k, "is a slice with element type", rt.Elem())
-			fmt.Println(k, rv.Len())
-		case reflect.Array:
-			fmt.Println(k, "is an array with element type", rt.Elem())
-			fmt.Println(k, rv.Len())
-		default:
-			fmt.Println(k, "is something else entirely")
+	for _, tt := range tests {
+		result := MustStringValue(tt.input)
+		if result != tt.expected {
+			t.Errorf("MustStringValue(%v) = %v, want %v", tt.input, result, tt.expected)
 		}
 	}
 }
 
-type TT struct {
-	Name string
-	Age  int
+func TestNeverNullPoint(t *testing.T) {
+	tests := []struct {
+		input    interface{}
+		defVal   interface{}
+		expected interface{}
+	}{
+		{nil, "default", "default"},
+		{"", "default", "default"},
+		{"hello", "default", "hello"},
+		{0, 42, 42},
+		{15, 42, 15},
+		{0.0, 3.14, 3.14},
+		{2.5, 3.14, 2.5},
+		{false, true, true},
+		{true, false, true},
+	}
+
+	for _, tt := range tests {
+		switch v := tt.input.(type) {
+		case string:
+			result := *NeverNullPoint(v, tt.defVal.(string))
+			if result != tt.expected {
+				t.Errorf("NeverNullPoint(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		case int:
+			result := *NeverNullPoint(v, tt.defVal.(int))
+			if result != tt.expected {
+				t.Errorf("NeverNullPoint(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		case float64:
+			result := *NeverNullPoint(v, tt.defVal.(float64))
+			if result != tt.expected {
+				t.Errorf("NeverNullPoint(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		case bool:
+			result := *NeverNullPoint(v, tt.defVal.(bool))
+			if result != tt.expected {
+				t.Errorf("NeverNullPoint(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		}
+	}
 }
 
-func Test_typeof(t *testing.T) {
-	m := make(map[string]any)
-	m["a"] = []string{"a", "b", "c"}
-	m["b"] = [4]int{1, 2, 3, 4}
-	m["c"] = []TT{{Name: "AAname", Age: 30}, {Name: "Dodd", Age: 50}}
-	m["d"] = "hello"
-	test(m)
+func TestIfElse(t *testing.T) {
+	if IfElse(1, 1, "yes", "no") != "yes" {
+		t.Error("IfElse(1, 1) failed")
+	}
+	if IfElse(1, 2, "yes", "no") != "no" {
+		t.Error("IfElse(1, 2) failed")
+	}
 }
 
 func TestIfElseFunc(t *testing.T) {
-	t.Run("should run f1", func(t *testing.T) {
-		IfElseFunc("a", "a", func() {
-			fmt.Println("f1")
-		}, func() {
-			fmt.Println("f2")
-			t.Fatal()
-		})
+	t.Run("v1 equals v2", func(t *testing.T) {
+		var executed string
+		IfElseFunc(1, 1,
+			func() { executed = "f1" },
+			func() { executed = "f2" })
+		if executed != "f1" {
+			t.Errorf("IfElseFunc(1, 1) executed %q, want %q", executed, "f1")
+		}
 	})
 
-	t.Run("should run f2", func(t *testing.T) {
-		IfElseFunc("a", "b", func() {
-			fmt.Println("f1")
-			t.Fatal()
-		}, func() {
-			fmt.Println("f2")
-		})
+	t.Run("v1 not equals v2", func(t *testing.T) {
+		var executed string
+		IfElseFunc(1, 2,
+			func() { executed = "f1" },
+			func() { executed = "f2" })
+		if executed != "f2" {
+			t.Errorf("IfElseFunc(1, 2) executed %q, want %q", executed, "f2")
+		}
 	})
+}
 
+func TestTrueThen(t *testing.T) {
+	if TrueThen(true, 1, 0) != 1 {
+		t.Error("TrueThen(true) failed")
+	}
+	if TrueThen(false, 1, 0) != 0 {
+		t.Error("TrueThen(false) failed")
+	}
+}
+
+func TestNotNullThen(t *testing.T) {
+	var s *string
+	if NotNullThen(s, "yes", "no") != "no" {
+		t.Error("NotNullThen(nil) failed")
+	}
+	str := "test"
+	if NotNullThen(&str, "yes", "no") != "yes" {
+		t.Error("NotNullThen(non-nil) failed")
+	}
+}
+
+func TestNullThen(t *testing.T) {
+	var s *string
+	if NullThen(s, "yes", "no") != "yes" {
+		t.Error("NullThen(nil) failed")
+	}
+	str := "test"
+	if NullThen(&str, "yes", "no") != "no" {
+		t.Error("NullThen(non-nil) failed")
+	}
+}
+
+func TestValueOrDefault(t *testing.T) {
+	tests := []struct {
+		input    interface{}
+		defVal   interface{}
+		expected interface{}
+	}{
+		{nil, "default", "default"},
+		{"", "default", "default"},
+		{"hello", "default", "hello"},
+		{0, 42, 42},
+		{15, 42, 15},
+	}
+
+	for _, tt := range tests {
+		switch v := tt.input.(type) {
+		case string:
+			result := ValueOrDefault(v, tt.defVal.(string))
+			if result != tt.expected {
+				t.Errorf("ValueOrDefault(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		case int:
+			result := ValueOrDefault(v, tt.defVal.(int))
+			if result != tt.expected {
+				t.Errorf("ValueOrDefault(%v, %v) = %v, want %v", v, tt.defVal, result, tt.expected)
+			}
+		}
+	}
+}
+
+func TestExpectOrDefault(t *testing.T) {
+	tests := []struct {
+		input    interface{}
+		defVal   interface{}
+		expected interface{}
+		ok       bool
+	}{
+		{"hello", "default", "hello", true},
+		{42, "default", "default", false},
+		{nil, 0, 0, false},
+	}
+
+	for _, tt := range tests {
+		switch def := tt.defVal.(type) {
+		case string:
+			result, ok := ExpectOrDefault(tt.input, def)
+			if result != tt.expected || ok != tt.ok {
+				t.Errorf("ExpectOrDefault(%v, %v) = %v, %v, want %v, %v",
+					tt.input, def, result, ok, tt.expected, tt.ok)
+			}
+		case int:
+			result, ok := ExpectOrDefault(tt.input, def)
+			if result != tt.expected || ok != tt.ok {
+				t.Errorf("ExpectOrDefault(%v, %v) = %v, %v, want %v, %v",
+					tt.input, def, result, ok, tt.expected, tt.ok)
+			}
+		}
+	}
+}
+
+func TestP(t *testing.T) {
+	value := 42
+	ptr := P(value)
+	if *ptr != value {
+		t.Errorf("P(%v) = %v, want %v", value, *ptr, value)
+	}
 }

@@ -2,79 +2,73 @@ package e2concurrent
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
+	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/e2u/e2util/e2crypto"
-	"github.com/e2u/e2util/e2time"
 )
 
-type TArg struct {
-	A int
-	B int
-	C string
+// processResult is a sample output type for testing.
+type processResult struct {
+	Output string
 }
 
-type TVResult struct {
-	ReqArg TArg
-	N      int
-	NS     string
-	Err    error
-}
+// TestWorker tests a worker with different input and output types.
+func TestWorker(t *testing.T) {
+	tasks := make(chan Task[string, processResult], 3)
 
-type MT struct {
-}
+	go func() {
+		tasks <- NewTask[string, processResult](
+			&worker{},
+			"test1",
+			WithRefer[string, processResult]("task-1"),
+			WithRetainInput[string, processResult](true),
+		)
+		tasks <- NewTask[string, processResult](
+			&worker{},
+			"test2",
+			WithRefer[string, processResult]("task-2"),
+			WithRetainInput[string, processResult](false),
+		)
+		tasks <- NewTask[string, processResult](
+			&worker{},
+			"test3",
+			WithRefer[string, processResult]("task-3"),
+			WithRetainInput[string, processResult](true),
+		)
+		close(tasks)
+	}()
 
-func (t *MT) Run(arg Arg) Result {
-	slog.Info("Run begin", "arg", arg)
-	rn := e2time.SleepRandom(1*time.Second, 3*time.Second)
-	slog.Info("sleep random", "sleep_time", rn)
-	a := arg.Value.(TArg)
-
-	return Result{
-		Value: TVResult{
-			ReqArg: a,
-			N:      a.A + a.B + 10,
-			NS:     "Hi, " + a.C,
-		},
+	results := Exec(context.Background(), 2, tasks, 3)
+	count := 0
+	for r := range results {
+		if r.Err != nil {
+			t.Errorf("Unexpected error for task %s: %v", r.Refer, r.Err)
+		}
+		// If Arg.Value is not nil, RetainInput was true, so validate the output
+		if r.Arg.Value != nil {
+			expectedOutput := "Processed: " + r.Arg.Value.(string)
+			if r.Value.Output != expectedOutput {
+				t.Errorf("Expected output %q, got %q for task %s", expectedOutput, r.Value.Output, r.Refer)
+			}
+		}
+		// If Arg.Value is nil, RetainInput was false, so just check the task completed
+		if r.Arg.Value == nil && r.Value.Output == "" {
+			t.Errorf("Expected non-empty output for task %s, got %q", r.Refer, r.Value.Output)
+		}
+		count++
+	}
+	if count != 3 {
+		t.Errorf("Expected 3 results, got %d", count)
 	}
 }
 
-func newTask(i int) Task {
-	fn := &MT{}
-	ctx := context.Background()
-	return Task{
-		Ctx:     ctx,
-		Timeout: 10 * time.Second,
-		Fn:      fn,
-		Arg: Arg{
-			Refer: fmt.Sprintf("%000d", i),
-			Value: TArg{
-				A: int(e2crypto.RandomInt64(0, 100)),
-				B: int(e2crypto.RandomInt64(50, 200)),
-				C: e2crypto.RandomString(5),
-			},
-		},
-	}
-}
+// worker is a sample implementation with string input and processResult output.
+type worker struct{}
 
-func resultFunc(result Result) {
-	if result.Err == nil {
-		slog.Info("Success", "Value", result.Value, "Trace", result.Trace)
-	} else {
-		slog.Info("Error", "Result", result)
+func (w *worker) Run(arg Arg[string]) Result[processResult] {
+	sleepTime := time.Duration(rand.Intn(100)) * time.Millisecond
+	time.Sleep(sleepTime)
+	return Result[processResult]{
+		Value: processResult{Output: "Processed: " + arg.Value},
 	}
-}
-
-func tasksFunc(tasks chan<- Task) {
-	for i := 0; i < 20; i++ {
-		tasks <- newTask(i)
-	}
-}
-
-func Test_main(t *testing.T) {
-	ctx := context.Background()
-	DefaultExec(ctx, tasksFunc, resultFunc)
 }

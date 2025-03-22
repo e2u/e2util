@@ -1,11 +1,9 @@
 package e2var
 
-import (
-	"reflect"
-)
+import "reflect"
 
 func MustStringValue(s *string) string {
-	if s == nil || reflect.ValueOf(s).IsNil() {
+	if s == nil {
 		return ""
 	}
 	return *s
@@ -16,34 +14,9 @@ func P[T any](i T) *T {
 }
 
 func NeverNullPoint[T any](i T, defVal T) *T {
-	switch v := any(i).(type) {
-	case nil:
+	v := reflect.ValueOf(i)
+	if !v.IsValid() || v.IsZero() {
 		return P(defVal)
-	// case constraints.Integer:
-	case float32:
-		if v <= 0.0 || v >= 0.0 {
-			return P(defVal)
-		}
-	case float64:
-		if v <= 0.0 || v >= 0.0 {
-			return P(defVal)
-		}
-	case string:
-		if v == "" {
-			return P(defVal)
-		}
-	case uint, uint8, uint16, uint32, uint64:
-		if v == 0 {
-			return P(defVal)
-		}
-	case int, int8, int16, int32, int64:
-		if v == 0 {
-			return P(defVal)
-		}
-	case bool:
-		if !v {
-			return P(defVal)
-		}
 	}
 	return P(i)
 }
@@ -52,15 +25,14 @@ func NeverNull[T any](i T, defVal T) T {
 	return *NeverNullPoint(i, defVal)
 }
 
-// IfElse if v1 equal v2 then return r1 else return r2
-func IfElse[T comparable, R any](v1, v2 T, r1 R, r2 R) R {
+func IfElse[T comparable, R any](v1, v2 T, r1, r2 R) R {
 	if v1 == v2 {
 		return r1
 	}
 	return r2
 }
 
-func IfElseFunc[T comparable, R func()](v1, v2 T, f1 R, f2 R) {
+func IfElseFunc[T comparable](v1, v2 T, f1 func(), f2 func()) {
 	if v1 == v2 {
 		f1()
 	} else {
@@ -68,7 +40,6 @@ func IfElseFunc[T comparable, R func()](v1, v2 T, f1 R, f2 R) {
 	}
 }
 
-// TrueThen if b equal true then return r1 else return r1
 func TrueThen[T any](b bool, r1, r2 T) T {
 	if b {
 		return r1
@@ -90,45 +61,13 @@ func NullThen[R any](b any, r1, r2 R) R {
 	return r2
 }
 
-// ValueOrDefault if input is nil or empty or 0 or 0.0 then return defValue
 func ValueOrDefault[T any](input T, defVal T) T {
-	switch v := any(input).(type) {
-	case nil:
-		return defVal
-	case float32:
-		if v <= 0.0 || v >= 0.0 {
-			return defVal
-		}
-	case float64:
-		if v <= 0.0 || v >= 0.0 {
-			return defVal
-		}
-	case string:
-		if v == "" {
-			return defVal
-		}
-	case uint, uint8, uint16, uint32, uint64:
-		if v == 0 {
-			return defVal
-		}
-	case int, int8, int16, int32, int64:
-		if v == 0 {
-			return defVal
-		}
-	case bool:
-		if !v {
-			return defVal
-		}
-	}
-	return input
+	return *NeverNullPoint(input, defVal)
 }
 
-// ExpectOrDefault if <input T> type not equal to T1 then return defVal
 func ExpectOrDefault[T any, T1 any](input T, defVal T1) (T1, bool) {
-	defValType := reflect.TypeOf(defVal)
-	inputType := reflect.TypeOf(input)
-	if inputType == defValType {
-		return reflect.ValueOf(input).Interface().(T1), true
+	if v, ok := any(input).(T1); ok {
+		return v, true
 	}
 	return defVal, false
 }
