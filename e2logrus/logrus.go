@@ -135,7 +135,13 @@ func NewLogger(cfg *Config) *logrus.Logger {
 	}
 	if strings.HasPrefix(output, "file://") {
 		logPath := output[7:]
-		linkName := filepath.Join(filepath.Dir(logPath), "current")
+		logDir := filepath.Dir(logPath)
+		if _, err := os.Stat(logDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(logDir, 0755); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Failed to create log directory %s.\n", logDir)
+			}
+		}
+		linkName := filepath.Join(logDir, "current")
 		fileName := filepath.Base(logPath)
 		if fileName != "" {
 			re := regexp.MustCompile(`%[a-zA-Z]+`)
@@ -143,7 +149,7 @@ func NewLogger(cfg *Config) *logrus.Logger {
 			fileName = strings.ReplaceAll(fileName, ".", "")
 			fileName = strings.ReplaceAll(fileName, "-", "")
 			fileName = strings.ReplaceAll(fileName, " ", "")
-			linkName = filepath.Join(filepath.Dir(logPath), fileName+"-current")
+			linkName = filepath.Join(logDir, fileName+"-current")
 		}
 
 		rl, err := rotatelogs.New(logPath,

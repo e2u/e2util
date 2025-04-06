@@ -67,7 +67,7 @@ func TestWorker(t *testing.T) {
 // worker is a sample implementation with string input and processResult output.
 type worker struct{}
 
-func (w *worker) Run(arg Arg[string]) Result[processResult] {
+func (w *worker) ConcurrentRun(arg Arg[string]) Result[processResult] {
 	sleepTime := time.Duration(rand.Intn(100)) * time.Millisecond
 	time.Sleep(sleepTime)
 	return Result[processResult]{
@@ -77,7 +77,7 @@ func (w *worker) Run(arg Arg[string]) Result[processResult] {
 
 type DummyWorker struct{}
 
-func (w *DummyWorker) Run(arg Arg[string]) Result[string] {
+func (w *DummyWorker) ConcurrentRun(arg Arg[string]) Result[string] {
 	// 模擬 CPU 密集型任務
 	start := time.Now()
 	for time.Since(start) < 1*time.Second {

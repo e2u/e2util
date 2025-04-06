@@ -28,7 +28,7 @@ func InitTestSuitApp() *e2app.Application {
 func Test_DownloadMergedFile(t *testing.T) {
 	a := app.InitTestSuitApp()
 	tr := e2gintest.New(a)
-	rs := tr.Run(&e2gintest.Request{
+	rs := tr.ConcurrentRun(&e2gintest.Request{
 		RegUri:  "/project/download/:project_id",
 		ReqUri:  "/project/download/90d0b1f2-b091-48a0-9aba-a1bcf257036b",
 		Handler: NewProject(a).DownloadMergedFile,

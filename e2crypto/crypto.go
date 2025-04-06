@@ -2,7 +2,6 @@ package e2crypto
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"math/big"
 
@@ -10,59 +9,59 @@ import (
 )
 
 var (
-	encoder = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	encoder = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 )
 
-// RandomString return a random string , removed  / + - and _
-func RandomString(n int) string {
-	enc := base64.RawURLEncoding
-	src := make([]byte, n)
-	if _, err := rand.Read(src); err != nil {
-		return ""
+// RandomString returns a random string of length n or an error
+func RandomString(n int) (string, error) {
+	if n <= 0 {
+		return "", errors.New("length must be positive")
 	}
-	dest := make([]byte, enc.EncodedLen(n))
-	enc.Encode(dest, src)
-	for idx := 0; idx < len(dest); idx++ {
-		if dest[idx] == '-' || dest[idx] == '_' || dest[idx] == '+' || dest[idx] == '/' {
-			dest[idx] = encoder[idx%len(encoder)]
-		}
-	}
-	if len(dest) > n {
-		return string(dest[:n])
-	}
-	return string(dest)
-}
-
-// RandomBytes 返回随机字节数组
-func RandomBytes(n int) []byte {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
-		return []byte("")
+		return "", err
 	}
-	return b
+	for i := range b {
+		b[i] = encoder[b[i]%byte(len(encoder))]
+	}
+	return string(b), nil
 }
 
-func RandomNumber[T constraints.Integer](min, max T) T {
-	nb, err := rand.Int(rand.Reader, big.NewInt(int64(max-min+1)))
+// RandomBytes returns n random bytes or an error
+func RandomBytes(n int) ([]byte, error) {
+	if n <= 0 {
+		return nil, errors.New("length must be positive")
+	}
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func RandomNumber[T constraints.Integer](min, max T) (T, error) {
+	if min > max {
+		return 0, errors.New("min cannot be greater than max")
+	}
+	delta := max - min + 1
+	nb, err := rand.Int(rand.Reader, big.NewInt(int64(delta)))
 	if err != nil {
-		return 0
+		return 0, err
 	}
-
-	result := T(nb.Int64()) + min
-	return result
+	return T(nb.Int64()) + min, nil
 }
 
-func RandomFloat[T constraints.Float](min, max T) T {
+func RandomFloat[T constraints.Float](min, max T) (T, error) {
 	if min > max {
 		min, max = max, min
 	}
 	delta := max - min
 	nb, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
-		return 0.0
+		return 0, err
 	}
 	randomFraction := T(nb.Int64()) / 1000000.0
-	return min + randomFraction*delta
+	return min + randomFraction*delta, nil
 }
 
 func RandomElement[T any](sa []T) (T, error) {
@@ -70,6 +69,9 @@ func RandomElement[T any](sa []T) (T, error) {
 	if len(sa) == 0 {
 		return zero, errors.New("slice is empty")
 	}
-	idx := RandomNumber(0, len(sa)-1)
+	idx, err := RandomNumber(0, len(sa)-1)
+	if err != nil {
+		return zero, err
+	}
 	return sa[idx], nil
 }

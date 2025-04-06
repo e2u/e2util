@@ -1,9 +1,9 @@
 package e2db
 
 import (
-	"crypto/rand"
+	"context"
+	"errors"
 	"fmt"
-	"math/big"
 	"regexp"
 	"strings"
 
@@ -17,229 +17,57 @@ import (
 	"gorm.io/gorm"
 )
 
-type Connect struct {
-	*Config
-	db        *gorm.DB
-	roDb      []*gorm.DB
-	dialector gorm.Dialector
-}
-
 type Option struct {
 	Debug bool
 }
 
-type Config struct {
-	*gorm.Config
-	Writer                          string           `mapstructure:"writer"`
-	Readers                         []string         `mapstructure:"readers"`
-	Driver                          string           `mapstructure:"driver"`
-	DisableAutoReport               bool             `mapstructure:"disable_auto_report"`
-	EnableDebug                     bool             `mapstructure:"enable_debug"`
-	AutoCreateDatabase              bool             `mapstructure:"auto_create_database"`
-	InitSqls                        []string         `mapstructure:"init_sqls"`
-	SQLLogSlowThreshold             int              `mapstructure:"sql_log_slow_threshold"`
-	SQLLogIgnoreRecordNotFoundError bool             `mapstructure:"sql_log_ignore_record_not_found_error"`
-	SQLLogColorful                  bool             `mapstructure:"sql_log_colorful"`
-	LoggerConfig                    *e2logrus.Config `mapstructure:"logger"`
-}
-
-func New(cfg *Config) *Connect {
-	var err error
-	var primaryDialector gorm.Dialector
-	var slaveDialector []gorm.Dialector
-
-	if cfg.Config == nil {
-		cfg.Config = &gorm.Config{}
+func (c *Connect) Exists(v interface{}, query string, useRO bool, where ...interface{}) *e2model.NullBool {
+	db := c.RW()
+	if useRO {
+		db = c.RO()
 	}
-
-	cfg.Config.Logger = newLogger(cfg)
-
-	conn := &Connect{
-		Config: cfg,
-	}
-
-	switch cfg.Driver {
-	case "postgres", "postgresql", "pgsql":
-		conn.dialector = postgres.Dialector{}
-	case "mysql":
-		conn.dialector = mysql.Dialector{}
-	case "sqlite", "sqlite3":
-		conn.dialector = sqlite.Dialector{}
-	case "go-sqlite":
-		conn.dialector = sqlite.Dialector{}
-	}
-
-	if conn.dialector == nil {
-		switch {
-		case strings.Contains(cfg.Writer, "host="):
-			conn.dialector = postgres.Dialector{}
-		case strings.Contains(cfg.Writer, "@tcp("):
-			conn.dialector = mysql.Dialector{}
-		case strings.HasPrefix(cfg.Writer, "file:"):
-			conn.dialector = sqlite.Dialector{}
-		}
-	}
-
-	switch conn.dialector.Name() {
-	case "mysql":
-		// user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local
-		cfg.Driver = "mysql"
-		if cfg.Writer != "" {
-			primaryDialector = mysql.Open(cfg.Writer)
-		}
-
-		for _, dsn := range cfg.Readers {
-			slaveDialector = append(slaveDialector, mysql.Open(dsn))
-		}
-
-	case "postgres":
-		// host=127.0.0.1 port=5432 user=postgres password=none dbname=db1 sslmode=disable application_name=apa01
-		cfg.Driver = "postgres"
-		if cfg.Writer != "" {
-			primaryDialector = postgres.Open(cfg.Writer)
-		}
-
-		for _, dsn := range cfg.Readers {
-			slaveDialector = append(slaveDialector, postgres.Open(dsn))
-		}
-	case "sqlite", "go-sqlite":
-		// file:db1?mode=memory&cache=shared
-		cfg.Driver = "sqlite3"
-		if cfg.Writer != "" {
-			primaryDialector = sqlite.Open(cfg.Writer)
-		}
-		for _, dsn := range cfg.Readers {
-			slaveDialector = append(slaveDialector, sqlite.Open(dsn))
-		}
-	}
-
-	conn.db, err = gorm.Open(primaryDialector, cfg.Config)
-	if err != nil {
-		switch cfg.Driver {
-		case "postgres":
-			if cfg.AutoCreateDatabase && strings.Contains(err.Error(), "does not exist") {
-				if err := createPostgresDatabase(cfg.Writer); err != nil {
-					logrus.Fatalf("create postgres database error=%v", err)
-					return nil
-				}
-			}
-		case "mysql":
-			if cfg.AutoCreateDatabase && strings.Contains(err.Error(), "Unknown database") {
-				if err := createMySQLDatabase(cfg.Writer); err != nil {
-					logrus.Fatalf("create mysql database error=%v", err)
-					return nil
-				}
-			}
-		}
-
-		conn.db, err = gorm.Open(primaryDialector, cfg.Config)
-		if err != nil {
-			logrus.Panic(err)
-		}
-	}
-
-	for _, s := range cfg.InitSqls {
-		conn.db.Exec(s)
-	}
-
-	if conn.dialector.Name() == "sqlite" {
-		conn.roDb = append(conn.roDb, conn.db)
-	} else {
-		for _, sd := range slaveDialector {
-			c, err := gorm.Open(sd, cfg.Config)
-			if err != nil {
-				logrus.Errorf("open slave connection error=%v", err)
-				continue
-			}
-			conn.roDb = append(conn.roDb, c)
-		}
-		if len(slaveDialector) > 0 && len(conn.roDb) == 0 {
-			logrus.Panic("no any slave connections")
-		}
-	}
-
-	return conn
-}
-
-func (c *Connect) RW(opts ...*Option) *gorm.DB {
-	o := &Option{}
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-	if o.Debug || c.EnableDebug {
-		return c.db.Debug()
-	}
-	return c.db
-}
-
-func (c *Connect) RO(opts ...*Option) *gorm.DB {
-	if len(c.roDb) == 0 {
-		logrus.Errorf("no read-only database connections")
-		return nil
-	}
-	n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(c.roDb))))
-
-	o := &Option{}
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-
-	if o.Debug || c.EnableDebug {
-		return c.roDb[n.Int64()].Debug()
-	}
-
-	return c.roDb[n.Int64()]
-}
-
-// Exists
-// exs := d.exists(&model.Dictionary{}, "category_code = ? and code = ?", categoryCode, code)
-// return exs.Bool, exs.Error
-func (c *Connect) Exists(v interface{}, query string, where ...interface{}) *e2model.NullBool {
 	var count int64
-	if err := c.RW().Model(v).
-		Where(query, where...).
-		Count(&count).Error; err != nil {
+	if err := db.Model(v).Where(query, where...).Count(&count).Error; err != nil {
 		return e2model.NewNullBool(false, err)
 	}
 	return e2model.NewNullBool(count > 0, nil)
 }
 
-func (c *Connect) Save(v interface{}) error {
-	return c.RW().Save(v).Error
-}
-
-func (c *Connect) Delete(v interface{}) error {
-	return c.RW().Delete(v).Error
-}
-
-func (c *Connect) Patch(v interface{}, patchs []*e2model.HttpPatch) error {
+func (c *Connect) Patch(ctx context.Context, v interface{}, patchs []*e2model.HttpPatch) error {
 	updates := make(map[string]interface{})
 	for _, patch := range patchs {
+		if patch.Path == "" {
+			return fmt.Errorf("invalid patch: empty path")
+		}
 		updates[patch.Path] = patch.Value
 	}
-	return c.RW().Model(v).Updates(updates).Error
+	return c.RW().WithContext(ctx).Model(v).Updates(updates).Error
 }
 
-func (c *Connect) DebugRW() *gorm.DB {
-	return c.RW().Debug()
-}
-
-func (c *Connect) DebugRO() *gorm.DB {
-	return c.RO().Debug()
-}
-
-func (c *Connect) AutoMigrate(dst ...interface{}) {
-	if err := c.DebugRW().AutoMigrate(dst...); err != nil {
+func (c *Connect) AutoMigrate(ctx context.Context, dst ...interface{}) error {
+	err := c.RW().WithContext(ctx).AutoMigrate(dst...)
+	if err != nil {
 		logrus.Errorf("gorm auto migrate model error=%v, model=%v", err, dst)
+		return fmt.Errorf("auto migrate failed: %w", err)
 	}
+	return nil
 }
 
-func (c *Connect) CreateSchema(schemas ...string) {
+func (c *Connect) CreateSchema(ctx context.Context, schemas ...string) error {
+	if c.dialector.Name() != "postgres" {
+		return fmt.Errorf("CreateSchema is only supported for PostgreSQL")
+	}
 	for _, schema := range schemas {
-		if err := c.DebugRW().Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)).Error; err != nil {
-			logrus.Errorf("gorm create schema error=%v, model=%v", err, schema)
+		if !regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(schema) {
+			return fmt.Errorf("invalid schema name: %s", schema)
+		}
+		err := c.RW().WithContext(ctx).Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)).Error
+		if err != nil {
+			logrus.Errorf("gorm create schema error=%v, schema=%s", err, schema)
+			return fmt.Errorf("failed to create schema %s: %w", schema, err)
 		}
 	}
+	return nil
 }
 
 func createPostgresDatabase(dsn string) error {
@@ -296,4 +124,168 @@ func createMySQLDatabase(dsn string) error {
 	}
 	logrus.Info("MySQL database created successfully")
 	return nil
+}
+
+// --------------------------------
+
+// Config defines the database connection configuration.
+type Config struct {
+	*gorm.Config
+	Writer                          string           `mapstructure:"writer"`
+	Readers                         []string         `mapstructure:"readers"`
+	Driver                          string           `mapstructure:"driver"`
+	DisableAutoReport               bool             `mapstructure:"disable_auto_report"`
+	EnableDebug                     bool             `mapstructure:"enable_debug"`
+	AutoCreateDatabase              bool             `mapstructure:"auto_create_database"`
+	InitSqls                        []string         `mapstructure:"init_sqls"`
+	SQLLogSlowThreshold             int              `mapstructure:"sql_log_slow_threshold"`
+	SQLLogIgnoreRecordNotFoundError bool             `mapstructure:"sql_log_ignore_record_not_found_error"`
+	SQLLogColorful                  bool             `mapstructure:"sql_log_colorful"`
+	LoggerConfig                    *e2logrus.Config `mapstructure:"logger"`
+}
+
+// Connect manages database connections with read-write separation.
+type Connect struct {
+	*Config
+	db        *gorm.DB
+	roDb      []*gorm.DB
+	dialector gorm.Dialector
+	roIndex   int // For round-robin selection
+}
+
+// New creates a new database connection instance.
+func New(cfg *Config) (*Connect, error) {
+	if cfg.Config == nil {
+		cfg.Config = &gorm.Config{Logger: newLogger(cfg)}
+	}
+
+	conn := &Connect{Config: cfg}
+	driver := strings.ToLower(cfg.Driver)
+
+	// Detect and set dialector
+	dialector, err := detectDialector(driver, cfg.Writer)
+	if err != nil {
+		return nil, fmt.Errorf("invalid driver or DSN: %w", err)
+	}
+	conn.dialector = dialector
+
+	// Open primary (writer) database connection
+	var primaryDialector gorm.Dialector
+	switch driver {
+	case "mysql":
+		primaryDialector = mysql.Open(cfg.Writer)
+	case "postgres", "postgresql", "pgsql":
+		primaryDialector = postgres.Open(cfg.Writer)
+	case "sqlite", "sqlite3", "go-sqlite":
+		primaryDialector = sqlite.Open(cfg.Writer)
+	default:
+		return nil, fmt.Errorf("unsupported driver: %s", driver)
+	}
+
+	db, err := gorm.Open(primaryDialector, cfg.Config)
+	if err != nil {
+		if cfg.AutoCreateDatabase {
+			if err := ensureDatabaseExists(driver, cfg.Writer); err != nil {
+				return nil, fmt.Errorf("failed to create database: %w", err)
+			}
+			db, err = gorm.Open(primaryDialector, cfg.Config)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open primary DB: %w", err)
+		}
+	}
+	conn.db = db
+
+	// Execute initialization SQLs
+	for _, sql := range cfg.InitSqls {
+		if err := db.Exec(sql).Error; err != nil {
+			logrus.Warnf("failed to execute init SQL '%s': %v", sql, err)
+		}
+	}
+
+	// Set up read-only connections
+	if driver == "sqlite" {
+		conn.roDb = append(conn.roDb, db)
+	} else {
+		for _, dsn := range cfg.Readers {
+			var roDialector gorm.Dialector
+			switch driver {
+			case "mysql":
+				roDialector = mysql.Open(dsn)
+			case "postgres", "postgresql", "pgsql":
+				roDialector = postgres.Open(dsn)
+			case "sqlite", "sqlite3", "go-sqlite":
+				roDialector = sqlite.Open(dsn)
+			}
+			roDB, err := gorm.Open(roDialector, cfg.Config)
+			if err != nil {
+				logrus.Errorf("failed to open read-only DB '%s': %v", dsn, err)
+				continue
+			}
+			conn.roDb = append(conn.roDb, roDB)
+		}
+		if len(cfg.Readers) > 0 && len(conn.roDb) == 0 {
+			return nil, errors.New("no valid read-only connections available")
+		}
+	}
+
+	return conn, nil
+}
+
+// RO returns a read-only database connection using round-robin selection.
+func (c *Connect) RO(opts ...*Option) *gorm.DB {
+	if len(c.roDb) == 0 {
+		logrus.Errorf("no read-only database connections available, falling back to RW")
+		return c.RW(opts...)
+	}
+	c.roIndex = (c.roIndex + 1) % len(c.roDb)
+	db := c.roDb[c.roIndex]
+	if len(opts) > 0 && (opts[0].Debug || c.EnableDebug) {
+		return db.Debug()
+	}
+	return db
+}
+
+// RW returns the read-write database connection.
+func (c *Connect) RW(opts ...*Option) *gorm.DB {
+	db := c.db
+	if len(opts) > 0 && (opts[0].Debug || c.EnableDebug) {
+		return db.Debug()
+	}
+	return db
+}
+
+// detectDialector infers the dialector based on driver or DSN.
+func detectDialector(driver, dsn string) (gorm.Dialector, error) {
+	switch strings.ToLower(driver) {
+	case "mysql":
+		return mysql.Dialector{}, nil
+	case "postgres", "postgresql", "pgsql":
+		return postgres.Dialector{}, nil
+	case "sqlite", "sqlite3", "go-sqlite":
+		return sqlite.Dialector{}, nil
+	default:
+		if strings.Contains(dsn, "@tcp(") {
+			return mysql.Dialector{}, nil
+		}
+		if strings.Contains(dsn, "host=") {
+			return postgres.Dialector{}, nil
+		}
+		if strings.HasPrefix(dsn, "file:") {
+			return sqlite.Dialector{}, nil
+		}
+		return nil, fmt.Errorf("unknown driver or DSN format: %s", dsn)
+	}
+}
+
+// ensureDatabaseExists creates the database if it doesn't exist.
+func ensureDatabaseExists(driver, dsn string) error {
+	switch driver {
+	case "mysql":
+		return createMySQLDatabase(dsn)
+	case "postgres", "postgresql", "pgsql":
+		return createPostgresDatabase(dsn)
+	default:
+		return nil // SQLite does not require database creation
+	}
 }

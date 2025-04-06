@@ -23,10 +23,10 @@ type Trace struct {
 // Result represents the outcome of a task's execution.
 // It includes the computed value, any error, execution trace, and optionally the original argument.
 type Result[Out any] struct {
-	Value Out      `json:"value,omitempty"` // The result value of the task, type-safe via generics
-	Err   error    `json:"err,omitempty"`   // Error if the task failed, nil if successful
-	Arg   Arg[any] `json:"arg,omitempty"`   // Original input argument, included only if Task.RetainInput is true
-	Trace `json:"trace"`                    // Embedded Trace struct for execution metadata
+	Value Out            `json:"value,omitempty"` // The result value of the task, type-safe via generics
+	Err   error          `json:"err,omitempty"`   // Error if the task failed, nil if successful
+	Arg   Arg[any]       `json:"arg,omitempty"`   // Original input argument, included only if Task.RetainInput is true
+	Trace `json:"trace"` // Embedded Trace struct for execution metadata
 }
 
 // Arg holds the input data for a task.
@@ -38,7 +38,7 @@ type Arg[In any] struct {
 // WorkFunc defines the interface for task execution logic.
 // It processes an input Arg of type In and returns a Result of type Out.
 type WorkFunc[In, Out any] interface {
-	Run(arg Arg[In]) Result[Out]
+	ConcurrentRun(arg Arg[In]) Result[Out]
 }
 
 // Task encapsulates a single task to be executed.
@@ -108,7 +108,7 @@ func taskWorker[In, Out any](wg *sync.WaitGroup, uuid string, task Task[In, Out]
 	done := make(chan Result[Out], 1)
 
 	go func() {
-		done <- task.Fn.Run(task.Arg)
+		done <- task.Fn.ConcurrentRun(task.Arg)
 	}()
 
 	select {

@@ -31,6 +31,7 @@ require (
 	golang.org/x/sync v0.11.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.11
+	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
 )
 
@@ -64,7 +65,6 @@ require (
 	github.com/go-playground/validator/v10 v10.25.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -82,6 +82,7 @@ require (
 	github.com/lestrrat-go/strftime v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.9 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -95,7 +96,6 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
@@ -106,7 +106,6 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect

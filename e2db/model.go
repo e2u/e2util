@@ -10,18 +10,31 @@ import (
 	"gorm.io/gorm"
 )
 
-type ModelWithSoftDelete struct {
-	PKAID     uint           `gorm:"primarykey;column:pkaid" json:"pkaid"`
-	CreatedAt time.Time      `gorm:"index" json:"created_at"`
-	UpdatedAt time.Time      `gorm:"index" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+// Model represents a basic database model with a physical primary key and timestamps.
+type Model struct {
+	PKAID     uint      `gorm:"primarykey;column:pkaid;autoIncrement" json:"pkaid"` // Physical auto-incremented primary key
+	CreatedAt time.Time `gorm:"index" json:"created_at"`                            // Record creation timestamp
+	UpdatedAt time.Time `gorm:"index" json:"updated_at"`                            // Record last update timestamp
 }
 
-type Model struct {
-	PKAID     uint      `gorm:"primarykey;column:pkaid" json:"pkaid"`
-	CreatedAt time.Time `gorm:"index" json:"created_at"`
-	UpdatedAt time.Time `gorm:"index" json:"updated_at"`
+// ModelWithSoftDelete extends Model with soft delete functionality.
+type ModelWithSoftDelete struct {
+	Model
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"` // Soft delete timestamp
 }
+
+//type ModelWithSoftDelete struct {
+//	PKAID     uint           `gorm:"primarykey;column:pkaid" json:"pkaid"`
+//	CreatedAt time.Time      `gorm:"index" json:"created_at"`
+//	UpdatedAt time.Time      `gorm:"index" json:"updated_at"`
+//	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+//}
+//
+//type Model struct {
+//	PKAID     uint      `gorm:"primarykey;column:pkaid" json:"pkaid"`
+//	CreatedAt time.Time `gorm:"index" json:"created_at"`
+//	UpdatedAt time.Time `gorm:"index" json:"updated_at"`
+//}
 
 // Example
 // type Extra struct {
@@ -50,7 +63,29 @@ type Model struct {
 //  Extra         *Extra     `gorm:"column:extra;type:jsonb" json:"extra"`
 //}
 
-type JSONBArray []any
+type JSONBHandler[T any] struct {
+	Data T
+}
+
+func (j JSONBHandler[T]) Value() (driver.Value, error) {
+	return json.Marshal(j.Data)
+}
+
+func (j *JSONBHandler[T]) Scan(value any) error {
+	data, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+	return json.Unmarshal(data, &j.Data)
+}
+
+// JSONBArray is a slice of arbitrary values stored as JSONB.
+type JSONBArray JSONBHandler[[]any]
+
+// JSONBMap is a map of string to arbitrary values stored as JSONB.
+type JSONBMap JSONBHandler[map[string]any]
+
+//type JSONBArray []any
 
 func (jsonField JSONBArray) Value() (driver.Value, error) {
 	return json.Marshal(jsonField)
@@ -64,7 +99,7 @@ func (jsonField *JSONBArray) Scan(value any) error {
 	return json.Unmarshal(data, &jsonField)
 }
 
-type JSONBMap map[string]any
+//type JSONBMap map[string]any
 
 func (jsonField JSONBMap) Value() (driver.Value, error) {
 	return json.Marshal(jsonField)

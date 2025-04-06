@@ -11,54 +11,77 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func MustGetCount(db *gorm.DB, model interface{}, query interface{}, args ...interface{}) sql.NullInt64 {
-	var c int64
-	if err := db.Model(model).Where(query, args).Count(&c).Error; err != nil {
-		logrus.Errorf("MustGetCount error=%v", err)
-		return sql.NullInt64{
-			Int64: 0,
-			Valid: false,
-		}
+func (c *Connect) Count(ctx context.Context, model interface{}, useRO bool, query interface{}, args ...interface{}) (sql.NullInt64, error) {
+	db := c.RW()
+	if useRO {
+		db = c.RO()
 	}
-	return sql.NullInt64{
-		Int64: c,
-		Valid: true,
+	var count int64
+	err := db.WithContext(ctx).Model(model).Where(query, args...).Count(&count).Error
+	if err != nil {
+		logrus.Errorf("count error=%v", err)
+		return sql.NullInt64{Int64: 0, Valid: false}, err
 	}
+	return sql.NullInt64{Int64: count, Valid: true}, nil
 }
 
-func SaveAndPreload[T any](ctx context.Context, db *gorm.DB, model T) (T, error) {
-	dd := db.WithContext(ctx).Save(model)
-	if err := dd.Error; err != nil {
-		return model, err
-	}
-	qm := make(map[string]any)
-	for _, pn := range dd.Statement.Schema.PrimaryFields {
-		if !pn.PrimaryKey {
-			continue
-		}
-		r := reflect.ValueOf(model)
-		f := reflect.Indirect(r).FieldByName(pn.Name)
-		switch {
-		case f.CanFloat():
-			qm[pn.DBName] = f.Float()
-		case f.CanInt():
-			qm[pn.DBName] = f.Int()
-		case f.CanUint():
-			qm[pn.DBName] = f.Uint()
-		default:
-			qm[pn.DBName] = fmt.Sprintf("%v", pn.DBName)
-		}
-	}
-	var rv T
-	err := dd.Preload(clause.Associations).Limit(1).Where(qm).Find(&rv).Error
-	return rv, err
-}
-
-func DropTables(db *gorm.DB, tables ...interface{}) error {
+func (c *Connect) DropTables(ctx context.Context, tables ...interface{}) error {
 	for _, table := range tables {
-		if err := db.Migrator().DropTable(table); err != nil {
-			return err
+		err := c.RW().WithContext(ctx).Migrator().DropTable(table)
+		if err != nil {
+			logrus.Errorf("failed to drop table %v: %v", table, err)
+			return fmt.Errorf("failed to drop table %v: %w", table, err)
 		}
 	}
 	return nil
+}
+
+// DBHandler is a generic helper struct for database operations.
+type DBHandler[T any] struct {
+	RW *gorm.DB
+	RO *gorm.DB
+}
+
+// SaveAndPreload saves and preloads the model.
+func (h *DBHandler[T]) SaveAndPreload(ctx context.Context, model T) (T, error) {
+	// Save the model using the RW connection
+	tx := h.RW.WithContext(ctx).Save(model)
+	if tx.Error != nil {
+		return model, fmt.Errorf("failed to save model: %w", tx.Error)
+	}
+
+	// Get the schema to identify primary keys (e.g., PKAID)
+	schema := tx.Statement.Schema
+	if schema == nil || len(schema.PrimaryFields) == 0 {
+		return model, fmt.Errorf("no schema or primary key defined for model")
+	}
+
+	// Build conditions based on primary key(s)
+	conditions := make(map[string]any)
+	modelValue := reflect.ValueOf(model)
+	if modelValue.Kind() == reflect.Ptr {
+		modelValue = modelValue.Elem() // Dereference if it's a pointer
+	}
+	for _, field := range schema.PrimaryFields {
+		value, zero := field.ValueOf(ctx, modelValue)
+		if zero {
+			return model, fmt.Errorf("primary key %s is zero or unset", field.DBName)
+		}
+		conditions[field.DBName] = value
+	}
+
+	// Fetch the model with associations using the RO connection
+	var result T
+	err := h.RO.WithContext(ctx).Preload(clause.Associations).Where(conditions).First(&result).Error
+	if err != nil {
+		logrus.Warnf("failed to preload model after save: %v", err)
+		return model, fmt.Errorf("failed to preload associations: %w", err)
+	}
+
+	return result, nil
+}
+
+// NewDBHandler creates a new DBHandler for the given type and Connect instance.
+func NewDBHandler[T any](c *Connect) *DBHandler[T] {
+	return &DBHandler[T]{RW: c.RW(), RO: c.RO()}
 }
