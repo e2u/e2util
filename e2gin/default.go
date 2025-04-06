@@ -12,6 +12,7 @@ import (
 
 	"github.com/e2u/e2util/e2crypto"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
@@ -33,7 +34,12 @@ type TemplatesOption struct {
 
 var defaultFuncMap = template.FuncMap{
 	"nonce": func() string {
-		return e2crypto.RandomString(16)
+		if v, err := e2crypto.RandomString(16); err != nil {
+			return uuid.NewString()
+		} else {
+			return v
+		}
+
 	},
 	"startAt": func() string {
 		if gin.IsDebugging() {
