@@ -143,9 +143,13 @@ func newContext(args ...any) *Context {
 	}
 
 	if cfg.Orm != nil {
-		rc.DB = e2db.New(cfg.Orm)
+		if db, err := e2db.New(cfg.Orm); err != nil {
+			logrus.Fatal(err)
+		} else {
+			rc.DB = db
+		}
 	}
-	
+
 	if cfg.Cache != nil {
 		if cfg.Cache.Enable {
 			rc.Cache = e2cache.New(cfg.Cache)

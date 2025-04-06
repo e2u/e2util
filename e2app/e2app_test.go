@@ -20,7 +20,6 @@ type Extend struct {
 }
 
 func TestNew(t *testing.T) {
-	configFS = cfgFs
 	ctx := New(context.TODO())
 	logrus.Infof("Start TestNew")
 	logrus.Warning("<html>&</html>")
