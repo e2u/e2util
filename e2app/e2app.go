@@ -97,7 +97,7 @@ func newContext(args ...any) *Context {
 			logrus.Fatalf("config file %s does not exist", cfgFile)
 		}
 		viper.SetConfigFile(cfgFile)
-	} else if !reflect.DeepEqual(configFS, embed.FS{}) {
+	} else if reflect.DeepEqual(configFS, embed.FS{}) {
 		logrus.Info("Loading config FS")
 		configData, err := configFS.ReadFile(rc.Env + ".toml")
 		if err != nil {
