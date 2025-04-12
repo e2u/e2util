@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/e2u/e2util/e2crypto"
-	"github.com/e2u/e2util/e2db"
 	"github.com/e2u/e2util/e2exec"
 	"github.com/e2u/e2util/e2http"
 	"github.com/e2u/e2util/e2json"
@@ -58,7 +57,7 @@ func RandomWord() string {
 	if len(words) == 0 {
 		e2exec.SilentError(InitWords())
 	}
-	ri := e2crypto.RandomNumber(0, len(words))
+	ri, _ := e2crypto.RandomNumber(0, len(words))
 	return words[ri]
 }
 
@@ -68,7 +67,7 @@ func RandomWords(minNumber, maxNumber int64) []string {
 	}
 
 	var ws []string
-	number := e2crypto.RandomNumber(minNumber, maxNumber)
+	number, _ := e2crypto.RandomNumber(minNumber, maxNumber)
 	for i := int64(0); i < number; i++ {
 		ws = append(ws, RandomWord())
 	}
@@ -79,40 +78,4 @@ func RandomPhrase(minWords, maxWords int64) string {
 	s := strings.Join(RandomWords(minWords, maxWords), " ")
 
 	return s
-}
-
-func RandomValue(t Type, min, max int64) any {
-	rn := e2crypto.RandomNumber(min, max)
-	switch t {
-	case "int":
-		return e2crypto.RandomNumber(min, max)
-	case "bool":
-		return rn%2 == 0
-	case "string":
-		return e2crypto.RandomString(int(e2crypto.RandomNumber(min, max)))
-	case "float":
-		return e2crypto.RandomFloat(float64(min), float64(max))
-	}
-
-	return nil
-}
-
-func RandomJSONBArray(minNumber, maxNumber, minLen, maxLen int64) e2db.JSONBArray {
-	var rs e2db.JSONBArray
-	number := e2crypto.RandomNumber(minNumber, maxNumber)
-	for i := int64(0); i < number; i++ {
-		rs = append(rs, RandomValue(e2exec.Must(e2crypto.RandomElement(AllTypes)), minLen, maxLen))
-	}
-	return rs
-}
-
-func RandomJSONBMap(minNumber, maxNumber, minKeyLen, maxKeyLen, minValueLen, maxValueLen int64) e2db.JSONBMap {
-	rs := make(e2db.JSONBMap)
-	number := e2crypto.RandomNumber(minNumber, maxNumber)
-
-	for i := int64(0); i < number; i++ {
-		rs[e2crypto.RandomString(int(e2crypto.RandomNumber(minKeyLen, maxKeyLen)))] = RandomValue(e2exec.Must(e2crypto.RandomElement(AllTypes)), minValueLen, maxValueLen)
-	}
-
-	return rs
 }
