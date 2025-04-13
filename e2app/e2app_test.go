@@ -3,6 +3,7 @@ package e2app
 import (
 	"context"
 	"embed"
+	"fmt"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -19,8 +20,17 @@ type Extend struct {
 	} `mapstructure:"storage_darwin"`
 }
 
+func Test_cfgFS(t *testing.T) {
+	DebugFS(cfgFs, ".")
+	b, err := cfgFs.ReadFile("dev.toml")
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	fmt.Println(string(b))
+}
+
 func TestNew(t *testing.T) {
-	ctx := New(context.TODO())
+	ctx := New(context.TODO(), cfgFs)
 	logrus.Infof("Start TestNew")
 	logrus.Warning("<html>&</html>")
 	logrus.Warning(`<html>&"ha"</html>`)
