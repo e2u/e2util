@@ -20,6 +20,7 @@ readers = [
 driver = "postgres" # postgres, postgresql, pgsql, mysql, sqlite, sqlite3, go-sqlite
 disable_auto_report = false
 enable_debug = false
+enable_migrate = true
 auto_create_database = true
 init_sqls = [
     "CREATE EXTENSION citext"

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/e2u/e2util/e2crypto"
+	"github.com/e2u/e2util/e2exec"
 )
 
 func MustParse(format, value string) time.Time {
@@ -27,7 +28,7 @@ func TimePointer(t time.Time) *time.Time {
 }
 
 func SleepRandom(min time.Duration, max time.Duration) time.Duration {
-	rn := time.Duration(e2crypto.RandomNumber(int64(min), int64(max)))
+	rn := time.Duration(e2exec.Must(e2crypto.RandomNumber(int64(min), int64(max))))
 	time.Sleep(rn)
 	return rn
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/e2u/e2util/e2crypto"
+	"github.com/e2u/e2util/e2exec"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -62,7 +63,8 @@ func (s *SQS) BatchSendMessages(queueName string, messages []string) (int, error
 		Entries: func() []*sqs.SendMessageBatchRequestEntry {
 			var re []*sqs.SendMessageBatchRequestEntry
 			for _, message := range messages {
-				re = append(re, &sqs.SendMessageBatchRequestEntry{MessageBody: aws.String(message), Id: aws.String(e2crypto.RandomString(16))})
+				id := aws.String(e2exec.Must(e2crypto.RandomString(16)))
+				re = append(re, &sqs.SendMessageBatchRequestEntry{MessageBody: aws.String(message), Id: id})
 			}
 			return re
 		}(),

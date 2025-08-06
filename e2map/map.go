@@ -143,3 +143,12 @@ func (ms Map) DecodeBase64Value(key string) ([]byte, error) {
 	}
 	return nil, errors.New("key not found")
 }
+
+func Get[K comparable, V any](m map[K]any, k K) (V, bool) {
+	if v, ok := m[k]; ok {
+		if val, ok2 := v.(V); ok2 {
+			return val, true
+		}
+	}
+	return *new(V), false
+}

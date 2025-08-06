@@ -141,12 +141,14 @@ configLoaded:
 	}
 
 	if cfg.Logger != nil {
+		logrus.Info("Logger begin configuration")
 		if l := e2logrus.NewLogger(cfg.Logger); l != nil {
 			logrus.SetFormatter(l.Formatter)
 			logrus.SetOutput(l.Out)
 			logrus.SetReportCaller(l.ReportCaller)
 			logrus.SetLevel(l.Level)
 		}
+		logrus.Info("Logger configured")
 	}
 
 	if cfg.App != nil {
@@ -160,27 +162,45 @@ configLoaded:
 	}
 
 	if cfg.Orm != nil {
+		logrus.Info("Orm begin configuration")
 		if db, err := e2db.New(cfg.Orm); err != nil {
 			logrus.Fatalf("failed to initialize DB: %v", err)
 		} else {
 			rc.DB = db
 		}
+		logrus.Info("Orm configured")
 	}
 
 	if cfg.Cache != nil {
+		logrus.Info("Cache begin configuration")
 		if cfg.Cache.Enable {
 			rc.Cache = e2cache.New(cfg.Cache)
 		} else {
+			logrus.Info("Cache is disabled")
 			cfg.Cache.Type = "fake"
 			rc.Cache = e2cache.New(cfg.Cache)
 		}
+		logrus.Info("Cache configured")
+	} else {
+		rc.Cache = e2cache.New(&e2cache.Config{
+			Enable: false,
+			Type:   "fake",
+		})
+		logrus.Info("Initializing disabled fake cache")
 	}
 
 	if cfg.Http != nil {
 		rc.Http = cfg.Http
 	}
 
+	logrus.Info("Using config:", viper.ConfigFileUsed())
+	logrus.Info("Running Env:", rc.Env)
+
 	return rc
+}
+
+func (c *Context) ExtendedConfig(e any) error {
+	return viper.Unmarshal(e)
 }
 
 func DebugFS(embeddedFS embed.FS, dir string) error {
@@ -188,7 +208,7 @@ func DebugFS(embeddedFS embed.FS, dir string) error {
 	fmt.Println("DebugFS beginning")
 	entries, err := embeddedFS.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("failed to read dir %s: %v", dir, err)
+		return fmt.Errorf("failed to read dir %s: %w", dir, err)
 	}
 
 	// Iterate through entries

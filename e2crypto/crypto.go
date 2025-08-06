@@ -2,9 +2,13 @@ package e2crypto
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
 
+	"golang.org/x/crypto/hkdf"
 	"golang.org/x/exp/constraints"
 )
 
@@ -27,6 +31,11 @@ func RandomString(n int) (string, error) {
 	return string(b), nil
 }
 
+func MustRandomString(n int) string {
+	s, _ := RandomString(n)
+	return s
+}
+
 // RandomBytes returns n random bytes or an error
 func RandomBytes(n int) ([]byte, error) {
 	if n <= 0 {
@@ -37,6 +46,11 @@ func RandomBytes(n int) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func MustRandomBytes(n int) []byte {
+	b, _ := RandomBytes(n)
+	return b
 }
 
 func RandomNumber[T constraints.Integer](min, max T) (T, error) {
@@ -51,6 +65,11 @@ func RandomNumber[T constraints.Integer](min, max T) (T, error) {
 	return T(nb.Int64()) + min, nil
 }
 
+func MustRandomNumber[T constraints.Integer](min, max T) T {
+	t, _ := RandomNumber[T](min, max)
+	return t
+}
+
 func RandomFloat[T constraints.Float](min, max T) (T, error) {
 	if min > max {
 		min, max = max, min
@@ -63,6 +82,10 @@ func RandomFloat[T constraints.Float](min, max T) (T, error) {
 	randomFraction := T(nb.Int64()) / 1000000.0
 	return min + randomFraction*delta, nil
 }
+func MustRandomFloat[T constraints.Float](min, max T) T {
+	t, _ := RandomFloat[T](min, max)
+	return t
+}
 
 func RandomElement[T any](sa []T) (T, error) {
 	var zero T
@@ -74,4 +97,18 @@ func RandomElement[T any](sa []T) (T, error) {
 		return zero, err
 	}
 	return sa[idx], nil
+}
+
+func MustRandomElement[T any](sa []T) T {
+	t, _ := RandomElement(sa)
+	return t
+}
+
+func DeriveKey(inputKey []byte, info string) ([]byte, error) {
+	df := hkdf.New(sha256.New, inputKey, nil, []byte(info))
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(df, key); err != nil {
+		return nil, fmt.Errorf("failed to derive key: %w", err)
+	}
+	return key, nil
 }

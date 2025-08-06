@@ -81,12 +81,22 @@ func AboutWithJSON(c *gin.Context, code int, detail any) {
 		c.Abort()
 		return
 	}
+
 	v := getCodeMessage(code)
 	rv := gin.H{
 		"code":    v.Code,
 		"message": v.Message,
-		"detail":  detail,
 	}
+
+	switch t := detail.(type) {
+	case error:
+		rv["detail"] = t.Error()
+	case string:
+		rv["detail"] = t
+	default:
+		rv["detail"] = detail
+	}
+
 	c.AbortWithStatusJSON(v.HttpCode, rv)
 }
 

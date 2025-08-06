@@ -61,7 +61,7 @@ func New(path string, opts ...badger.Options) (*BDB, error) {
 type File struct {
 	Key          string `json:"id,omitempty"`
 	Name         string `json:"name,omitempty"`
-	Size         int    `json:"size,omitempty"`
+	Size         int64  `json:"size,omitempty"`
 	Type         string `json:"type,omitempty"`
 	LastModified int64  `json:"last_modified,omitempty"`
 	Hash         string `json:"hash,omitempty"`
@@ -81,7 +81,7 @@ func (f *File) Prepare() error {
 	}
 	f.content = e2slice.Copy(bc)
 	f.Hash = contentHash(f.content)
-	f.Size = len(bc)
+	f.Size = int64(len(bc))
 
 	return nil
 }

@@ -45,12 +45,32 @@ func (c *Connect) Patch(ctx context.Context, v interface{}, patchs []*e2model.Ht
 }
 
 func (c *Connect) AutoMigrate(ctx context.Context, dst ...interface{}) error {
+	if !c.EnableMigrate {
+		logrus.Warn("migrate disabled")
+		return nil
+	}
+
 	err := c.RW().WithContext(ctx).AutoMigrate(dst...)
 	if err != nil {
 		logrus.Errorf("gorm auto migrate model error=%v, model=%v", err, dst)
 		return fmt.Errorf("auto migrate failed: %w", err)
 	}
 	return nil
+}
+
+func (c *Connect) CreateUniqueIndexWithNulls(ctx context.Context, tableName string, indexName string, dropExists bool, columns ...string) error {
+	if !c.EnableMigrate {
+		logrus.Warn("migrate disabled")
+		return nil
+	}
+
+	indexName = "uidx_" + tableName + "_" + indexName
+	if dropExists {
+		if err := c.RW().WithContext(ctx).Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s;", indexName)).Error; err != nil {
+			return err
+		}
+	}
+	return c.RW().WithContext(ctx).Exec(fmt.Sprintf("CREATE UNIQUE INDEX IF NOT EXISTS %s ON %s (%s) NULLS NOT DISTINCT;", indexName, tableName, strings.Join(columns, ","))).Error
 }
 
 func (c *Connect) CreateSchema(ctx context.Context, schemas ...string) error {
@@ -136,6 +156,7 @@ type Config struct {
 	Driver                          string           `mapstructure:"driver"`
 	DisableAutoReport               bool             `mapstructure:"disable_auto_report"`
 	EnableDebug                     bool             `mapstructure:"enable_debug"`
+	EnableMigrate                   bool             `mapstructure:"enable_migrate"`
 	AutoCreateDatabase              bool             `mapstructure:"auto_create_database"`
 	InitSqls                        []string         `mapstructure:"init_sqls"`
 	SQLLogSlowThreshold             int              `mapstructure:"sql_log_slow_threshold"`

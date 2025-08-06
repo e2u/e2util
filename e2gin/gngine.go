@@ -37,6 +37,10 @@ import (
 //go:embed resources/favicon.ico
 var favicon []byte
 
+const (
+	keyDisableGzip = "__DISABLE_GZIP__"
+)
+
 type Option struct {
 	Root                   string // http url root
 	StaticFiles            []*StaticFiles
@@ -138,10 +142,6 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		startPprof(eng, opt)
 	}
 
-	if !opt.DisableRecovery {
-		eng.Use(gin.CustomRecovery(customRecovery))
-	}
-
 	eng.RemoveExtraSlash = true
 	eng.HandleMethodNotAllowed = true
 
@@ -179,6 +179,10 @@ func DefaultEngine(opt *Option) *gin.Engine {
 
 	if !opt.DisableGzip {
 		eng.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+
+	if !opt.DisableRecovery {
+		eng.Use(gin.CustomRecovery(customRecovery))
 	}
 
 	return eng
@@ -310,15 +314,14 @@ func StartAndStopHttp(eng *gin.Engine, address string, port int, stop func()) {
 	os.Exit(0)
 }
 
-func customRecovery(c *gin.Context, err any) {
+func customRecovery(c *gin.Context, msg any) {
+	c.Set(keyDisableGzip, true)
+
 	trackId := uuid.NewString()
-	logrus.Errorf("Recovered %v", "8<"+strings.Repeat("-", 50))
-	logrus.Errorf("TrackId %v", trackId)
-	logrus.Errorf("Recovered %v", strings.Repeat("-", 50)+">8")
 
 	dumpReq := func() string {
 		var rs []string
-		rs = append(rs, "\n\n")
+		rs = append(rs, "\n")
 		b, _ := httputil.DumpRequest(c.Request, false)
 		for _, s := range bytes.Split(b, []byte("\n")) {
 			if bytes.HasPrefix(s, []byte("Cookie")) {
@@ -326,26 +329,46 @@ func customRecovery(c *gin.Context, err any) {
 			}
 			rs = append(rs, string(s))
 		}
-		rs = append(rs, "\n\n")
+		rs = append(rs, "\n")
 		return strings.Join(rs, "\n")
 	}()
 
-	body := h.T("html", h.A("lang", "en"),
-		h.T("head", h.T("title", h.Text("ServerError"))),
-		h.T("body",
-			h.T("h1", "Internal Server Error"),
-			h.T("ul", h.Attr{"style": "list-style: none"},
-				h.T("li", fmt.Sprintf("TrackId: %s", trackId)),
-				h.T("li", time.Now().UTC().Format(time.RFC1123)),
-				h.T("<!--", dumpReq),
-			),
-		),
-	).String()
+	logrus.Errorf("Recovered %v", "8<"+strings.Repeat("-", 50))
+	logrus.Errorf("TrackId %v", trackId)
+	logrus.Errorf("Error: %v", msg)
+	logrus.Errorf("DumpReq: %v", dumpReq)
+	logrus.Errorf("Recovered %v", strings.Repeat("-", 50)+">8")
 
-	c.Header("X-Track-Id", trackId)
-	c.Header("Content-Type", "text/html")
-	_, _ = c.Writer.WriteString(h.Doctype("html") + body)
-	c.AbortWithStatus(http.StatusInternalServerError)
+	msgStr := func() string {
+		switch msg.(type) {
+		case error:
+			return msg.(error).Error()
+		default:
+			return fmt.Sprintf("%v", msg)
+		}
+	}
+
+	body := h.T("body",
+		h.T("h1", "Internal Server Error"),
+		h.T("ul", h.Attr{"style": "list-style: none"},
+			h.T("li", fmt.Sprintf("TrackId: %s", trackId)),
+			h.T("li", time.Now().UTC().Format(time.RFC1123)),
+		),
+		h.T("pre", fmt.Sprintf("Error Message: %s", msgStr())),
+		//h.T("pre", dumpReq),
+	)
+
+	html := h.T("html", h.A("lang", "en"),
+		h.T("head", h.T("title", h.Text("ServerError"))),
+		body,
+	)
+	c.Writer.WriteHeader(http.StatusInternalServerError)
+
+	c.Header("X-Track-SessionId", trackId)
+	_, _ = c.Writer.WriteString(h.Doctype("html") + html.String())
+
+	c.Writer.Flush()
+	c.Abort()
 }
 
 func errorPage(title string, err error) string {

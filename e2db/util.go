@@ -85,3 +85,32 @@ func (h *DBHandler[T]) SaveAndPreload(ctx context.Context, model T) (T, error) {
 func NewDBHandler[T any](c *Connect) *DBHandler[T] {
 	return &DBHandler[T]{RW: c.RW(), RO: c.RO()}
 }
+
+func FixPGSequenceValue(db *gorm.DB, tableName string, column string) error {
+	var sequenceName string
+	err := db.Raw(
+		"SELECT pg_get_serial_sequence($1, $2)",
+		tableName,
+		column,
+	).Scan(&sequenceName).Error
+	if err != nil {
+		return fmt.Errorf("failed to get sequence name: %w", err)
+	}
+
+	if sequenceName == "" {
+		return fmt.Errorf("no sequence found for table %s column %s", tableName, column)
+	}
+
+	query := fmt.Sprintf(
+		"SELECT setval('%s', COALESCE((SELECT MAX(%s) FROM %s), 0) + 1, false)",
+		sequenceName,
+		column,
+		tableName,
+	)
+
+	if err := db.Exec(query).Error; err != nil {
+		return fmt.Errorf("failed to update sequence value: %w", err)
+	}
+
+	return nil
+}
