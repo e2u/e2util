@@ -2,7 +2,6 @@ package req
 
 import (
 	"cmp"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -12,16 +11,6 @@ import (
 	"github.com/e2u/e2util/e2regexp"
 	"golang.org/x/exp/maps"
 )
-
-//https://marmelab.com/react-admin/FilteringTutorial.html
-
-/**
-dataProvider.getList('posts', {
-    filter: { commentable: true, q: 'lorem ' },
-    pagination: { page: 1, perPage: 10 },
-    sort: { field: 'published_at', order: 'DESC' },
-});
-*/
 
 type SortPayload struct {
 	Field string `json:"field"`
@@ -63,16 +52,21 @@ type Filter struct {
 }
 
 var operatorSymbol = e2map.Map{
-	"_eq":      "=",      // check for equality on simple values: filter={"price_eq":20} // return books where the price is equal to 20
-	"_neq":     "!=",     // check for inequality on simple values, filter={"price_neq":20} // return books where the price is not equal to 20
-	"_eq_any":  "IN",     // check for equality on any passed values, filter={"price_eq_any":[20, 30]} // return books where the price is equal to 20 or 30
-	"_neq_any": "NOT IN", // check for inequality on any passed values, filter={"price_neq_any":[20, 30]} // return books where the price is not equal to 20 nor 30
-	"_inc_any": "IN",     // check for items that include any of the passed values, filter={"authors_inc_any":['William Gibson', 'Pat Cadigan']} // return books where authors include either 'William Gibson' or 'Pat Cadigan' or both
-	"_q":       "IN",     // check for items that contain the provided text, filter={"author_q":['Gibson']} // return books where the author includes 'Gibson' not considering the other fields
-	"_lt":      "<",      // check for items that have a value lower than the provided value, filter={"price_lte":100} // return books that have a price lower than 100
-	"_lte":     "<= ",    // check for items that have a value lower than or equal to the provided value, filter={"price_lte":100} // return books that have a price lower or equal to 100
-	"_gt":      ">",      // check for items that have a value greater than the provided value, filter={"price_gte":100} // return books that have a price greater than 100
-	"_gte":     ">=",     // check for items that have a value greater than or equal to the provided value, filter={"price_gte":100} // return books that have a price greater or equal to 100
+	"@eq":          "=",           // check for equality on simple values: filter={"price@eq":20} // return books where the price is equal to 20
+	"@neq":         "!=",          // check for inequality on simple values, filter={"price@neq":20} // return books where the price is not equal to 20
+	"@eq_any":      "IN",          // check for equality on any passed values, filter={"price@eq_any":[20, 30]} // return books where the price is equal to 20 or 30
+	"@neq_any":     "NOT IN",      // check for inequality on any passed values, filter={"price@neq_any":[20, 30]} // return books where the price is not equal to 20 nor 30
+	"@inc_any":     "IN",          // check for items that include any of the passed values, filter={"authors@inc_any":['William Gibson', 'Pat Cadigan']} // return books where authors include either 'William Gibson' or 'Pat Cadigan' or both
+	"@q":           "IN",          // check for items that contain the provided text, filter={"author@q":['Gibson']} // return books where the author includes 'Gibson' not considering the other fields
+	"@lt":          "<",           // check for items that have a value lower than the provided value, filter={"price@lte":100} // return books that have a price lower than 100
+	"@lte":         "<= ",         // check for items that have a value lower than or equal to the provided value, filter={"price@lte":100} // return books that have a price lower or equal to 100
+	"@gt":          ">",           // check for items that have a value greater than the provided value, filter={"price@gte":100} // return books that have a price greater than 100
+	"@gte":         ">=",          // check for items that have a value greater than or equal to the provided value, filter={"price@gte":100} // return books that have a price greater or equal to 100
+	"@like":        "ILIKE",       // check for items that contain the provided text, filter={"author@like":'Gibson'} // return books where the author includes 'Gibson' not considering the other fields
+	"@nlike":       "NOT ILIKE",   // check for items that do not contain the provided text, filter={"author@nlike":'Gibson'} // return books where the author does not include 'Gibson' not considering the other fields
+	"@is_null":     "IS NULL",     // check for items that are null, filter={"author@is_null":true} // return books where the author is null
+	"@is_not_null": "IS NOT NULL", // check for items that are not null, filter={"author@is_not_null":true} // return books where the author is not null
+	"@is_empty":    "IS EMPTY",    // check for items that are empty, filter={"author@is_empty":true} // return books where the author is empty
 }
 
 func ParseFilterPayload(s string) ([]Filter, error) {
@@ -99,14 +93,13 @@ func ParseFilterPayload(s string) ([]Filter, error) {
 			}
 		}
 		if tr.Operator == "" {
-			tr.Operator = "eq"
+			tr.Operator = "@eq"
 			tr.Field = key
 			tr.Symbol = "="
 		}
 		rs = append(rs, tr)
 	})
 
-	fmt.Printf("%#v", rs)
 	return rs, nil
 }
 
