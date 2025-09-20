@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"reflect"
+	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -33,6 +36,39 @@ func (c *Connect) DropTables(ctx context.Context, tables ...interface{}) error {
 			return fmt.Errorf("failed to drop table %v: %w", table, err)
 		}
 	}
+	return nil
+}
+
+func (c *Connect) DropCascadTables(ctx context.Context, tables ...interface{}) error {
+	return c.RW().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, table := range tables {
+			err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %v CASCADE", table)).Error
+			if err != nil {
+				tx.Rollback()
+				logrus.Errorf("failed to drop table %v: %v", table, err)
+				return fmt.Errorf("failed to drop table %v: %w", table, err)
+			}
+		}
+		return nil
+	})
+	return nil
+}
+
+func (c *Connect) Truncate(ctx context.Context, cascad bool, tables ...interface{}) error {
+	cascadStr := ""
+	if cascad {
+		cascadStr = "CASCADE"
+	}
+	return c.RW().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, table := range tables {
+			if err := tx.Exec(fmt.Sprintf("TRUNCATE TABLE %v %s", table, cascadStr)).Error; err != nil {
+				tx.Rollback()
+				logrus.Errorf("failed to truncate table %v: %v", table, err)
+				return fmt.Errorf("failed to truncate table %v: %w", table, err)
+			}
+		}
+		return nil
+	})
 	return nil
 }
 
@@ -113,4 +149,89 @@ func FixPGSequenceValue(db *gorm.DB, tableName string, column string) error {
 	}
 
 	return nil
+}
+
+func isNil(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
+}
+
+func MakeUpdates(um map[string]any, exists, update any, mapKey string, allowNil bool) {
+	if update == nil {
+		if allowNil && !isNil(exists) {
+			um[mapKey] = nil
+		}
+		return
+	}
+	if !reflect.DeepEqual(update, exists) {
+		um[mapKey] = update
+	}
+}
+
+func MakeTimeUpdate(um map[string]any, exists, update time.Time, mapKey string) {
+	if exists.IsZero() && update.IsZero() {
+		return
+	}
+	if !exists.Equal(update) {
+		um[mapKey] = update
+	}
+}
+
+func MakeFloatUpdate(um map[string]any, exists, update float64, mapKey string, epsilon float64) {
+	if math.IsNaN(exists) != math.IsNaN(update) {
+		um[mapKey] = update
+		return
+	}
+	if math.IsNaN(exists) && math.IsNaN(update) {
+		return
+	}
+	if math.Abs(exists-update) > epsilon {
+		um[mapKey] = update
+	}
+}
+
+func MakePtrFloatUpdate(um map[string]any, exists, update *float64, mapKey string, epsilon float64, allowNil bool) {
+	if exists == nil || update == nil {
+		MakeUpdates(um, exists, update, mapKey, allowNil)
+		return
+	}
+	if math.Abs(*exists-*update) > epsilon {
+		um[mapKey] = update
+	}
+}
+
+func MakeDecimalUpdate(um map[string]any, exists, update decimal.Decimal, mapKey string) {
+	// 使用 Equal（底層做數值比較，1.0 與 1.00 會被視為相等）
+	if !exists.Equal(update) {
+		um[mapKey] = update
+	}
+}
+
+// 指針 decimal（可為 nil），allowNil 控制是否允許把值設為 NULL
+func MakePtrDecimalUpdate(um map[string]any, exists, update *decimal.Decimal, mapKey string, allowNil bool) {
+	switch {
+	case exists == nil && update == nil:
+		return
+	case exists == nil && update != nil:
+		um[mapKey] = update
+		return
+	case exists != nil && update == nil:
+		if allowNil {
+			um[mapKey] = nil
+		}
+		return
+	default:
+		// 兩者皆非 nil，用 Equal 比較數值
+		if !exists.Equal(*update) {
+			um[mapKey] = update
+		}
+	}
 }
