@@ -9,6 +9,29 @@ import (
 	"github.com/e2u/e2util/e2exec"
 )
 
+func ParseInt[T int8 | int16 | int32 | int64 | int](s string) (T, error) {
+	s = strings.TrimSpace(s)
+	switch any(*new(T)).(type) {
+	case int8:
+		v, err := strconv.ParseInt(s, 10, 8)
+		return T(v), err
+	case int16:
+		v, err := strconv.ParseInt(s, 10, 16)
+		return T(v), err
+	case int32:
+		v, err := strconv.ParseInt(s, 10, 32)
+		return T(v), err
+	case int64:
+		v, err := strconv.ParseInt(s, 10, 64)
+		return T(v), err
+	case int:
+		v, err := strconv.ParseInt(s, 10, 0)
+		return T(v), err
+	default:
+		return T(0), fmt.Errorf("unsupported type")
+	}
+}
+
 func MustParseInt(s string) int {
 	s = strings.TrimSpace(s)
 	return int(MustParseInt64(s, 10, 64))
