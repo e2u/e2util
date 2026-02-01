@@ -43,12 +43,15 @@ type PaginationResult[T any] struct {
 // PaginationOption defines options for pagination
 // PaginationOption 定義分頁選項
 type PaginationOption struct {
-	PrePage        int
-	Page           int
-	Offset         int
-	OrderField     string
-	OrderDirection string
-	DisableHtmlBar bool
+	PrePage             int
+	Page                int
+	Offset              int
+	OrderField          string
+	OrderDirection      string
+	DisableHtmlBar      bool
+	DisableHeadCount    bool
+	HeadCountName       string
+	DisableContentRange bool
 }
 
 // BuildQueryUri constructs a URL with query parameters
@@ -247,6 +250,17 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 	var ls []T
 	if err := dbQuery.Order(orderStr.String()).Limit(opt.PrePage).Offset(offset).Find(&ls).Error; err != nil {
 		return nil, err
+	}
+
+	if !opt.DisableHeadCount {
+		if opt.HeadCountName == "" {
+			opt.HeadCountName = "X-Total-Count"
+		}
+		c.Header("X-Total-Count", fmt.Sprintf("%d", totalCount))
+	}
+
+	if !opt.DisableContentRange {
+		c.Header("Content-Range", fmt.Sprintf("items %d-%d/%d", offset, len(ls)-1, totalCount))
 	}
 
 	// Build result

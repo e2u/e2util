@@ -40,24 +40,28 @@ const (
 	NotAcceptable
 	NotImplemented
 	BadGateway
+	Conflict
+	UnprocessableEntity
 )
 
 var (
 	undefinedError = StatusMessage{HttpCode: http.StatusForbidden, Message: "forbidden"}
 	codeMessageMap = map[int]StatusMessage{
-		Success:          {HttpCode: http.StatusOK, Message: "success"},
-		Accepted:         {HttpCode: http.StatusAccepted, Message: "accepted"},
-		Created:          {HttpCode: http.StatusCreated, Message: "created"},
-		NoContent:        {HttpCode: http.StatusNoContent, Message: "no_content"},
-		BadRequest:       {HttpCode: http.StatusBadRequest, Message: "bad_request"},
-		Unauthorized:     {HttpCode: http.StatusUnauthorized, Message: "unauthorized"},
-		NotFound:         {HttpCode: http.StatusNotFound, Message: "not_found"},
-		ServerError:      {HttpCode: http.StatusInternalServerError, Message: "internal_server_error"},
-		Forbidden:        undefinedError,
-		MethodNotAllowed: {HttpCode: http.StatusMethodNotAllowed, Message: "method_not_allowed"},
-		NotAcceptable:    {HttpCode: http.StatusNotAcceptable, Message: "not_acceptable"},
-		NotImplemented:   {HttpCode: http.StatusNotImplemented, Message: "not_implemented"},
-		BadGateway:       {HttpCode: http.StatusBadGateway, Message: "bad_gateway"},
+		Success:             {HttpCode: http.StatusOK, Message: "success"},
+		Accepted:            {HttpCode: http.StatusAccepted, Message: "accepted"},
+		Created:             {HttpCode: http.StatusCreated, Message: "created"},
+		NoContent:           {HttpCode: http.StatusNoContent, Message: "no_content"},
+		BadRequest:          {HttpCode: http.StatusBadRequest, Message: "bad_request"},
+		Unauthorized:        {HttpCode: http.StatusUnauthorized, Message: "unauthorized"},
+		NotFound:            {HttpCode: http.StatusNotFound, Message: "not_found"},
+		ServerError:         {HttpCode: http.StatusInternalServerError, Message: "internal_server_error"},
+		Forbidden:           undefinedError,
+		MethodNotAllowed:    {HttpCode: http.StatusMethodNotAllowed, Message: "method_not_allowed"},
+		NotAcceptable:       {HttpCode: http.StatusNotAcceptable, Message: "not_acceptable"},
+		NotImplemented:      {HttpCode: http.StatusNotImplemented, Message: "not_implemented"},
+		BadGateway:          {HttpCode: http.StatusBadGateway, Message: "bad_gateway"},
+		Conflict:            {HttpCode: http.StatusConflict, Message: "conflict"},
+		UnprocessableEntity: {HttpCode: http.StatusUnprocessableEntity, Message: "unprocessable_entity"},
 	}
 )
 
