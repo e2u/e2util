@@ -18,6 +18,9 @@ func A(key string, value any) Attr {
 }
 
 func (attr Attr) Set(key string, value any) Attr {
+	if attr == nil {
+		attr = make(Attr)
+	}
 	attr[key] = value
 	return attr
 }
@@ -60,20 +63,31 @@ func (r TAG) String() string {
 	return string(r)
 }
 
+// HTML returns the TAG as template.HTML.
+// WARNING: This bypasses HTML escaping and may be vulnerable to XSS attacks.
+// Only use this when you are certain the content is safe/trusted.
+// For untrusted content, use String() instead which properly escapes the output.
 func (r TAG) HTML() template.HTML {
 	return template.HTML(r) // #nosec G203
 }
 
+// TS converts a single TAG or a slice of TAG to a single TAG.
+// Returns an empty TAG if the input type is unexpected.
 func TS[T TAG | []TAG](t T) TAG {
 	var rs []string
 	if v, ok := any(t).(TAG); ok {
 		return v
 	}
 
-	for _, v := range any(t).([]TAG) {
-		rs = append(rs, v.String())
+	if v, ok := any(t).([]TAG); ok {
+		for _, tag := range v {
+			rs = append(rs, tag.String())
+		}
+		return TAG(strings.Join(rs, ""))
 	}
-	return TAG(strings.Join(rs, ""))
+
+	// Should never reach here due to type constraint, but handle gracefully
+	return TAG("")
 }
 
 func T(name string, args ...any) TAG {
