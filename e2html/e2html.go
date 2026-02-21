@@ -3,9 +3,7 @@ package e2html
 import (
 	"fmt"
 	"html"
-	"html/template"
 	"maps"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -64,38 +62,6 @@ func (r TAG) String() string {
 	return string(r)
 }
 
-// dangerousPatterns contains regex patterns that indicate potentially dangerous HTML content
-var dangerousPatterns = []string{
-	`(?i)<script[^>]*>`,           // script tags
-	`(?i)</script>`,                // closing script tags
-	`(?i)javascript:`,              // javascript protocol
-	`(?i)on\w+\s*=`,                // event handlers (onclick, onload, etc.)
-	`(?i)<iframe[^>]*>`,            // iframes
-	`(?i)<object[^>]*>`,            // objects
-	`(?i)<embed[^>]*>`,             // embeds
-}
-
-// containsDangerousContent checks if the string contains potentially dangerous HTML
-func containsDangerousContent(s string) bool {
-	for _, pattern := range dangerousPatterns {
-		if matched, _ := regexp.MatchString(pattern, s); matched {
-			return true
-		}
-	}
-	return false
-}
-
-// HTML returns the TAG as template.HTML.
-// WARNING: This method validates the content for dangerous patterns (scripts, event handlers, etc.)
-// but should still be used with caution. Only use with trusted or sanitized content.
-// For untrusted content, use String() instead which properly escapes the output.
-// Returns empty string if dangerous content is detected.
-func (r TAG) HTML() template.HTML {
-	if containsDangerousContent(string(r)) {
-		return ""
-	}
-	return template.HTML(r) // #nosec G203
-}
 
 // TS converts a single TAG or a slice of TAG to a single TAG.
 // Returns an empty TAG if the input type is unexpected.
