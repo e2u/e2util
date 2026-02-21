@@ -17,7 +17,7 @@ func authMiddleware() gin.HandlerFunc {
 
 		subject, err := getSessionSubjectOrAbort(c, getSecretKey())
 		if err != nil {
-			c.Abort()
+			// getSessionSubjectOrAbort already calls c.AbortWithStatusJSON
 			return
 		}
 
@@ -33,7 +33,12 @@ func adminMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeUnauthorized, "Unauthorized"))
 			return
 		}
-		isAdmin, err := isAmin(userID.(string))
+		userIDStr, ok := userID.(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, "Invalid user ID type in context"))
+			return
+		}
+		isAdmin, err := isAdmin(userIDStr)
 		if err != nil || !isAdmin {
 			c.AbortWithStatusJSON(http.StatusForbidden, errResp(ErrCodeForbidden, "Forbidden"))
 			return
@@ -45,8 +50,12 @@ func adminMiddleware() gin.HandlerFunc {
 func rateLimitMiddleware(rateLimiter RateLimiter, limit int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientID := c.ClientIP()
+		// Note: This only works for userID if the middleware is placed AFTER authMiddleware.
+		// For routes using this before auth, it will use ClientIP for rate limiting.
 		if userID, exists := c.Get(ctxKeyUserId); exists {
-			clientID = userID.(string)
+			if userIDStr, ok := userID.(string); ok {
+				clientID = userIDStr
+			}
 		}
 		allowed, err := rateLimiter.Allow(clientID, limit, window)
 		if err != nil || !allowed {

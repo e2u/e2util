@@ -51,5 +51,5 @@ const (
 )
 
 const (
-	ctxKeyUserId = "user_id"
+	ctxKeyUserId = "e2auth/user_id" // namespaced to avoid collisions with other packages
 )

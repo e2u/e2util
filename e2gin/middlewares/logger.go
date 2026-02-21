@@ -2,50 +2,63 @@ package middlewares
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/sirupsen/logrus"
 )
 
-type Logger struct {
+// responseWriter wraps gin.ResponseWriter to capture response body
+type responseWriter struct {
 	gin.ResponseWriter
-	body bytes.Buffer
+	body *bytes.Buffer
 }
 
-func (g *Logger) Write(b []byte) (int, error) {
-	g.body.Write(b)
-	return g.ResponseWriter.Write(b)
+func (w *responseWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
 }
 
-// RequestLoggingMiddleware /*
+func (w *responseWriter) WriteString(s string) (int, error) {
+	w.body.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
+}
+
+// RequestLoggingMiddleware logs request and response details.
+// Note: This reads the request body, so it should be used only for debugging
+// or with appropriate performance considerations.
 func RequestLoggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		ginBodyLogger := &Logger{
-			body:           bytes.Buffer{},
-			ResponseWriter: ctx.Writer,
+	return func(c *gin.Context) {
+		// Capture request body
+		var reqBody []byte
+		if c.Request.Body != nil && c.Request.Method != http.MethodGet {
+			var err error
+			reqBody, err = io.ReadAll(c.Request.Body)
+			if err == nil {
+				// Restore body so handlers can read it
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(reqBody))
+			}
 		}
-		ctx.Writer = ginBodyLogger
-		var req interface{}
-		if err := ctx.ShouldBindBodyWith(&req, binding.JSON); err != nil {
-			ctx.JSON(http.StatusBadRequest, err.Error())
-			return
+
+		// Wrap response writer to capture response
+		blw := &responseWriter{
+			body:           &bytes.Buffer{},
+			ResponseWriter: c.Writer,
 		}
-		data, err := json.Marshal(req)
-		if err != nil {
-			panic(fmt.Errorf("err while marshaling req msg: %w", err))
-		}
-		ctx.Next()
+		c.Writer = blw
+
+		c.Next()
+
+		// Log after request is processed
 		logger.WithFields(logrus.Fields{
-			"status":       ctx.Writer.Status(),
-			"method":       ctx.Request.Method,
-			"path":         ctx.Request.URL.Path,
-			"query_params": ctx.Request.URL.Query(),
-			"req_body":     string(data),
-			"res_body":     ginBodyLogger.body.String(),
+			"status":       c.Writer.Status(),
+			"method":       c.Request.Method,
+			"path":         c.Request.URL.Path,
+			"query_params": c.Request.URL.Query(),
+			"req_body":     string(reqBody),
+			"res_body":     blw.body.String(),
+			"client_ip":    c.ClientIP(),
 		}).Info("request details")
 	}
 }

@@ -11,21 +11,21 @@ import (
 
 // Logger defines the logging interface for middleware.
 type Logger interface {
-	Info(format string, args ...interface{})
-	Error(format string, args ...interface{})
-	Warn(format string, args ...interface{})
+	Info(format string, args ...any)
+	Error(format string, args ...any)
+	Warn(format string, args ...any)
 }
 
 // ConsoleLogger is a simple logger that writes to stdout.
 type ConsoleLogger struct{}
 
-func (cl *ConsoleLogger) Info(format string, args ...interface{}) {
+func (cl *ConsoleLogger) Info(format string, args ...any) {
 	fmt.Printf("[INFO] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
-func (cl *ConsoleLogger) Error(format string, args ...interface{}) {
+func (cl *ConsoleLogger) Error(format string, args ...any) {
 	fmt.Printf("[ERROR] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
-func (cl *ConsoleLogger) Warn(format string, args ...interface{}) {
+func (cl *ConsoleLogger) Warn(format string, args ...any) {
 	fmt.Printf("[WARN] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
 
@@ -33,13 +33,13 @@ func (cl *ConsoleLogger) Warn(format string, args ...interface{}) {
 type NoopLogger struct{}
 
 // Info does nothing.
-func (nl *NoopLogger) Info(format string, args ...interface{}) {}
+func (nl *NoopLogger) Info(format string, args ...any) {}
 
 // Error does nothing.
-func (nl *NoopLogger) Error(format string, args ...interface{}) {}
+func (nl *NoopLogger) Error(format string, args ...any) {}
 
 // Warn does nothing.
-func (nl *NoopLogger) Warn(format string, args ...interface{}) {}
+func (nl *NoopLogger) Warn(format string, args ...any) {}
 
 // loggingMiddleware logs request details using a Logger interface.
 func loggingMiddleware(logger Logger) gin.HandlerFunc {
@@ -72,7 +72,9 @@ func loggingMiddleware(logger Logger) gin.HandlerFunc {
 		status := c.Writer.Status()
 		requestID := c.GetHeader("X-Request-ID")
 		if requestID == "" {
-			requestID = uuid.New().String() // Requires "github.com/google/uuid"
+			requestID = uuid.New().String()
+			// Set the request ID in response header for traceability
+			c.Header("X-Request-ID", requestID)
 		}
 		logger.Info("Request: requestID=%s method=%s path=%s status=%d clientIP=%s userID=%s latency=%v",
 			requestID, method, path, status, clientIP, userID, latency)

@@ -323,7 +323,7 @@ func customRecovery(c *gin.Context, msg any) {
 		var rs []string
 		rs = append(rs, "\n")
 		b, _ := httputil.DumpRequest(c.Request, false)
-		for _, s := range bytes.Split(b, []byte("\n")) {
+		for s := range bytes.SplitSeq(b, []byte("\n")) {
 			if bytes.HasPrefix(s, []byte("Cookie")) {
 				continue
 			}
@@ -362,12 +362,9 @@ func customRecovery(c *gin.Context, msg any) {
 		h.T("head", h.T("title", h.Text("ServerError"))),
 		body,
 	)
-	c.Writer.WriteHeader(http.StatusInternalServerError)
 
 	c.Header("X-Track-SessionId", trackId)
-	_, _ = c.Writer.WriteString(h.Doctype("html") + html.String())
-
-	c.Writer.Flush()
+	c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(h.Doctype("html")+html.String()))
 	c.Abort()
 }
 
