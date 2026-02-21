@@ -2,6 +2,7 @@ package e2crypto
 
 import (
 	"math"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -129,7 +130,7 @@ func TestRandomElement(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		slice   interface{}
+		slice   any
 		wantErr bool
 	}{
 		{"int slice", intSlice, false},
@@ -147,13 +148,7 @@ func TestRandomElement(t *testing.T) {
 					return
 				}
 				if !tt.wantErr {
-					found := false
-					for _, v := range s {
-						if v == got {
-							found = true
-							break
-						}
-					}
+					found := slices.Contains(s, got)
 					if !found {
 						t.Errorf("RandomElement() = %v, not in slice %v", got, s)
 					}
@@ -165,13 +160,7 @@ func TestRandomElement(t *testing.T) {
 					return
 				}
 				if !tt.wantErr {
-					found := false
-					for _, v := range s {
-						if v == got {
-							found = true
-							break
-						}
-					}
+					found := slices.Contains(s, got)
 					if !found {
 						t.Errorf("RandomElement() = %v, not in slice %v", got, s)
 					}

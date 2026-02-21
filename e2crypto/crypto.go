@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"math/big"
 	"strings"
@@ -154,16 +156,71 @@ func base32Encode(data []byte) string {
 	return string(result)
 }
 
+// TOTPAlgorithm represents the hash algorithm used for TOTP
+type TOTPAlgorithm string
+
+const (
+	TOTPAlgorithmSHA1   TOTPAlgorithm = "SHA1"
+	TOTPAlgorithmSHA256 TOTPAlgorithm = "SHA256"
+	TOTPAlgorithmSHA512 TOTPAlgorithm = "SHA512"
+)
+
+// TOTPConfig holds configuration for TOTP generation/verification
+type TOTPConfig struct {
+	Secret    string        // Base32 encoded secret
+	Digits    int           // Number of digits (6, 7, or 8)
+	Algorithm TOTPAlgorithm // Hash algorithm
+	Period    int           // Time step in seconds (usually 30)
+}
+
+// DefaultTOTPConfig returns a TOTPConfig with default values
+func DefaultTOTPConfig(secret string) TOTPConfig {
+	return TOTPConfig{
+		Secret:    secret,
+		Digits:    6,
+		Algorithm: TOTPAlgorithmSHA1,
+		Period:    30,
+	}
+}
+
+// Validate checks if the TOTP configuration is valid
+func (c TOTPConfig) Validate() error {
+	if c.Secret == "" {
+		return errors.New("TOTP secret cannot be empty")
+	}
+	if c.Digits != 6 && c.Digits != 7 && c.Digits != 8 {
+		return errors.New("TOTP digits must be 6, 7, or 8")
+	}
+	if c.Period <= 0 {
+		return errors.New("TOTP period must be positive")
+	}
+	if c.Algorithm != TOTPAlgorithmSHA1 && c.Algorithm != TOTPAlgorithmSHA256 && c.Algorithm != TOTPAlgorithmSHA512 {
+		return errors.New("TOTP algorithm must be SHA1, SHA256, or SHA512")
+	}
+	return nil
+}
+
 // VerifyTOTP verifies a TOTP code against a secret at the given time
 // timeStep is typically 30 seconds (standard)
 // skew allows for time drift (e.g., 1 = ±30 seconds)
+// Deprecated: Use VerifyTOTPWithConfig for more flexibility
 func VerifyTOTP(secret string, code string, t time.Time, timeStep int, skew int) bool {
-	if len(code) != 6 {
+	config := DefaultTOTPConfig(secret)
+	config.Period = timeStep
+	return VerifyTOTPWithConfig(config, code, t, skew)
+}
+
+// VerifyTOTPWithConfig verifies a TOTP code using the provided configuration
+func VerifyTOTPWithConfig(config TOTPConfig, code string, t time.Time, skew int) bool {
+	if err := config.Validate(); err != nil {
+		return false
+	}
+	if len(code) != config.Digits {
 		return false
 	}
 	// Try current and adjacent time steps
 	for i := -skew; i <= skew; i++ {
-		expected := generateTOTP(secret, t, timeStep, i)
+		expected := generateTOTPWithConfig(config, t, i)
 		if subtle.ConstantTimeCompare([]byte(expected), []byte(code)) == 1 {
 			return true
 		}
@@ -172,18 +229,34 @@ func VerifyTOTP(secret string, code string, t time.Time, timeStep int, skew int)
 }
 
 // generateTOTP generates a TOTP code for the given time and offset
+// Deprecated: Use generateTOTPWithConfig for more flexibility
 func generateTOTP(secret string, t time.Time, timeStep, stepOffset int) string {
+	config := DefaultTOTPConfig(secret)
+	config.Period = timeStep
+	return generateTOTPWithConfig(config, t, stepOffset)
+}
+
+// generateTOTPWithConfig generates a TOTP code using the provided configuration
+func generateTOTPWithConfig(config TOTPConfig, t time.Time, stepOffset int) string {
 	// Decode base32 secret
-	key := base32Decode(secret)
+	key := base32Decode(config.Secret)
 	if key == nil {
 		return ""
 	}
 
 	// Calculate counter
-	counter := uint64(t.Unix()/int64(timeStep)) + uint64(stepOffset)
+	counter := uint64(t.Unix()/int64(config.Period)) + uint64(stepOffset)
 
-	// Create HMAC-SHA1
-	mac := hmac.New(sha1.New, key)
+	// Create HMAC based on algorithm
+	var mac hash.Hash
+	switch config.Algorithm {
+	case TOTPAlgorithmSHA256:
+		mac = hmac.New(sha256.New, key)
+	case TOTPAlgorithmSHA512:
+		mac = hmac.New(sha512.New, key)
+	default: // SHA1
+		mac = hmac.New(sha1.New, key)
+	}
 	mac.Write(uint64ToBytes(counter))
 	hash := mac.Sum(nil)
 
@@ -194,7 +267,9 @@ func generateTOTP(secret string, t time.Time, timeStep, stepOffset int) string {
 		(int(hash[offset+2])&0xFF)<<8 |
 		(int(hash[offset+3]) & 0xFF)) % 1000000
 
-	return fmt.Sprintf("%06d", code)
+	// Format with correct number of digits
+	format := fmt.Sprintf("%%0%dd", config.Digits)
+	return fmt.Sprintf(format, code)
 }
 
 // base32Decode decodes a base32 string (case insensitive)
@@ -235,7 +310,9 @@ func base32Decode(s string) []byte {
 // GenerateTOTP generates a TOTP code for the given time
 // This is exported for testing purposes
 func GenerateTOTP(secret string, t time.Time, timeStep int) string {
-	return generateTOTP(secret, t, timeStep, 0)
+	config := DefaultTOTPConfig(secret)
+	config.Period = timeStep
+	return generateTOTPWithConfig(config, t, 0)
 }
 
 func uint64ToBytes(v uint64) []byte {
