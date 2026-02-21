@@ -38,7 +38,7 @@ func New(tableName string, sess *session.Session) *DynamoDB {
 type Key struct {
 	Type  string
 	Name  string
-	Value interface{}
+	Value any
 }
 
 func (d *DynamoDB) BuildKeyValue(k *Key) *dynamodb.AttributeValue {
@@ -69,12 +69,12 @@ func (d *DynamoDB) BuildKeyValue(k *Key) *dynamodb.AttributeValue {
 }
 
 // GetByPK 根據 PK 獲取數據
-func (d *DynamoDB) GetByPK(partitionKey *Key, outputItem interface{}, opts ...*dynamodb.GetItemInput) error {
+func (d *DynamoDB) GetByPK(partitionKey *Key, outputItem any, opts ...*dynamodb.GetItemInput) error {
 	return d.GetByPKAndSK(partitionKey, nil, outputItem, opts...)
 }
 
 // GetByPKAndSK 根據 PK 和 Sort Key 獲取數據
-func (d *DynamoDB) GetByPKAndSK(partitionKey *Key, sortKey *Key, outputItem interface{}, opts ...*dynamodb.GetItemInput) error {
+func (d *DynamoDB) GetByPKAndSK(partitionKey *Key, sortKey *Key, outputItem any, opts ...*dynamodb.GetItemInput) error {
 	if partitionKey == nil {
 		return fmt.Errorf("partition key must not nil")
 	}
@@ -100,7 +100,7 @@ func (d *DynamoDB) GetByPKAndSK(partitionKey *Key, sortKey *Key, outputItem inte
 }
 
 // Put 寫入一條數據
-func (d *DynamoDB) Put(ar interface{}, opts ...*dynamodb.PutItemInput) error {
+func (d *DynamoDB) Put(ar any, opts ...*dynamodb.PutItemInput) error {
 	av, err := dynamodbattribute.MarshalMap(ar)
 	if err != nil {
 		return err

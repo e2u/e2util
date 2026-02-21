@@ -11,7 +11,7 @@ func SyncMapLen(lock *sync.RWMutex, m *sync.Map) uint64 {
 	lock.RLock()
 	defer lock.RUnlock()
 	var ri uint64
-	m.Range(func(key, val interface{}) bool {
+	m.Range(func(key, val any) bool {
 		atomic.AddUint64(&ri, 1)
 		return true
 	})
@@ -23,7 +23,7 @@ func SyncMapSortStringKeys(lock *sync.RWMutex, m *sync.Map) []string {
 	lock.RLock()
 	defer lock.RUnlock()
 	var keys []string
-	m.Range(func(key, val interface{}) bool {
+	m.Range(func(key, val any) bool {
 		keys = append(keys, key.(string))
 		return true
 	})
@@ -42,7 +42,7 @@ func Add[T int | int64 | uint | uint64](m *sync.Map, key any, inc T) (T, bool) {
 		}
 		if v, ok := actual.(T); ok {
 			newValue := v + inc
-			if m.CompareAndSwap(key, actual, interface{}(newValue)) {
+			if m.CompareAndSwap(key, actual, any(newValue)) {
 				return newValue, true
 			}
 			continue

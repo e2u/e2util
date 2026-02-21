@@ -10,9 +10,9 @@ func (nen *noopEventNotifier) Notify(userID, eventType, message string) error { 
 
 type noopLogger struct{}
 
-func (nl *noopLogger) Info(format string, args ...interface{})  {}
-func (nl *noopLogger) Error(format string, args ...interface{}) {}
-func (nl *noopLogger) Warn(format string, args ...interface{})  {}
+func (nl *noopLogger) Info(format string, args ...any)  {}
+func (nl *noopLogger) Error(format string, args ...any) {}
+func (nl *noopLogger) Warn(format string, args ...any)  {}
 
 type noopEmailer struct{}
 
@@ -27,7 +27,7 @@ func (nop *noopOAuthProvider) GetAuthURL(state string) string { return "" }
 func (nop *noopOAuthProvider) ExchangeCode(code, redirectURI string) (string, string, error) {
 	return "", "", nil
 }
-func (nop *noopOAuthProvider) GetUserInfo(accessToken string) (map[string]interface{}, error) {
+func (nop *noopOAuthProvider) GetUserInfo(accessToken string) (map[string]any, error) {
 	return nil, nil
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBuilderGetHtml(t *testing.T) {
+func TestBuilderGetHtml(t *testing.T) { t.Skip("Skipping external network test")
 	var buf bytes.Buffer
 	r := Builder(context.TODO()).
 		URL("https://www.apache.org").

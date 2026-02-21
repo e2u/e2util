@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (c *Connect) Count(ctx context.Context, model interface{}, useRO bool, query interface{}, args ...interface{}) (sql.NullInt64, error) {
+func (c *Connect) Count(ctx context.Context, model any, useRO bool, query any, args ...any) (sql.NullInt64, error) {
 	db := c.RW()
 	if useRO {
 		db = c.RO()
@@ -28,7 +28,7 @@ func (c *Connect) Count(ctx context.Context, model interface{}, useRO bool, quer
 	return sql.NullInt64{Int64: count, Valid: true}, nil
 }
 
-func (c *Connect) DropTables(ctx context.Context, tables ...interface{}) error {
+func (c *Connect) DropTables(ctx context.Context, tables ...any) error {
 	for _, table := range tables {
 		err := c.RW().WithContext(ctx).Migrator().DropTable(table)
 		if err != nil {
@@ -39,7 +39,7 @@ func (c *Connect) DropTables(ctx context.Context, tables ...interface{}) error {
 	return nil
 }
 
-func (c *Connect) DropCascadTables(ctx context.Context, tables ...interface{}) error {
+func (c *Connect) DropCascadTables(ctx context.Context, tables ...any) error {
 	return c.RW().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, table := range tables {
 			err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %v CASCADE", table)).Error
@@ -54,7 +54,7 @@ func (c *Connect) DropCascadTables(ctx context.Context, tables ...interface{}) e
 	return nil
 }
 
-func (c *Connect) Truncate(ctx context.Context, cascad bool, tables ...interface{}) error {
+func (c *Connect) Truncate(ctx context.Context, cascad bool, tables ...any) error {
 	cascadStr := ""
 	if cascad {
 		cascadStr = "CASCADE"
@@ -95,7 +95,7 @@ func (h *DBHandler[T]) SaveAndPreload(ctx context.Context, model T) (T, error) {
 	// Build conditions based on primary key(s)
 	conditions := make(map[string]any)
 	modelValue := reflect.ValueOf(model)
-	if modelValue.Kind() == reflect.Ptr {
+	if modelValue.Kind() == reflect.Pointer {
 		modelValue = modelValue.Elem() // Dereference if it's a pointer
 	}
 	for _, field := range schema.PrimaryFields {

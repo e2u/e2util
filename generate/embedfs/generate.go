@@ -60,7 +60,7 @@ func main() {
 			dir := filepath.Dir(f)
 
 			var ts []string
-			for range strings.Split(dir, string(filepath.Separator)) {
+			for range strings.SplitSeq(dir, string(filepath.Separator)) {
 				ts = append(ts, "**")
 			}
 			ts = append(ts, pattern)
@@ -87,7 +87,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := tmpl.Execute(f, map[string]interface{}{
+	if err := tmpl.Execute(f, map[string]any{
 		"Package":     *pkg,
 		"VarName":     *varName,
 		"Directories": dirsArray,
@@ -129,7 +129,7 @@ func collectFiles(pattern string, dir string) ([]string, error) {
 // splitPatterns 將逗號分隔的字串轉換為切片
 func splitPatterns(patterns string) []string {
 	var result []string
-	for _, p := range strings.Split(patterns, ",") {
+	for p := range strings.SplitSeq(patterns, ",") {
 		result = append(result, strings.TrimSpace(p))
 	}
 	return result

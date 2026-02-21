@@ -21,7 +21,7 @@ type Option struct {
 	Debug bool
 }
 
-func (c *Connect) Exists(v interface{}, query string, useRO bool, where ...interface{}) *e2model.NullBool {
+func (c *Connect) Exists(v any, query string, useRO bool, where ...any) *e2model.NullBool {
 	db := c.RW()
 	if useRO {
 		db = c.RO()
@@ -33,8 +33,8 @@ func (c *Connect) Exists(v interface{}, query string, useRO bool, where ...inter
 	return e2model.NewNullBool(count > 0, nil)
 }
 
-func (c *Connect) Patch(ctx context.Context, v interface{}, patchs []*e2model.HttpPatch) error {
-	updates := make(map[string]interface{})
+func (c *Connect) Patch(ctx context.Context, v any, patchs []*e2model.HttpPatch) error {
+	updates := make(map[string]any)
 	for _, patch := range patchs {
 		if patch.Path == "" {
 			return fmt.Errorf("invalid patch: empty path")
@@ -44,7 +44,7 @@ func (c *Connect) Patch(ctx context.Context, v interface{}, patchs []*e2model.Ht
 	return c.RW().WithContext(ctx).Model(v).Updates(updates).Error
 }
 
-func (c *Connect) AutoMigrate(ctx context.Context, dst ...interface{}) error {
+func (c *Connect) AutoMigrate(ctx context.Context, dst ...any) error {
 	if !c.EnableMigrate {
 		logrus.Warn("migrate disabled")
 		return nil
@@ -93,7 +93,7 @@ func (c *Connect) CreateSchema(ctx context.Context, schemas ...string) error {
 func createPostgresDatabase(dsn string) error {
 	var dsnc []string
 	var dbname string
-	for _, d := range strings.Split(dsn, " ") {
+	for d := range strings.SplitSeq(dsn, " ") {
 		d = strings.TrimSpace(d)
 		if strings.HasPrefix(strings.ToLower(d), "dbname=") {
 			dbname, _ = strings.CutPrefix(d, "dbname=")

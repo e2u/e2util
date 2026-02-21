@@ -30,7 +30,7 @@ func verifyEncryptSubjectAndClaims[T any](tokenString string, claims jwt.Claims,
 	}
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -106,7 +106,7 @@ func VerifyWithSubject[T any](tokenString string, secretKey []byte) (T, error) {
 	}
 	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}

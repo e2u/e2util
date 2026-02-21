@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var db = e2exec.Must(gorm.Open(postgres.Open("host=127.0.0.1 port=5432 user=pgsql password=123456 dbname=e2db_dev sslmode=disable TimeZone=UTC")))
+var db = e2exec.Must(gorm.Open(postgres.Open("host=pgsql-dev port=5432 user=pgsql password=123456 dbname=e2util_dev sslmode=disable TimeZone=UTC application_name=e2util")))
 
 func TestMain(m *testing.M) {
 	db.AutoMigrate(Table{})
@@ -32,7 +32,10 @@ func (t *Table) TableName() string {
 
 func Test_01(t *testing.T) {
 	name := e2test.RandomWord()
-	age := e2crypto.RandomNumber(15, 40)
+	age, err := e2crypto.RandomNumber[int](15, 40)
+	if err != nil {
+		t.Fatalf("random age error: %v", err)
+	}
 	t1 := &Table{
 		Name: name,
 		Age:  age,
@@ -50,7 +53,10 @@ func Test_01(t *testing.T) {
 
 	t.Run("update", func(t *testing.T) {
 		updateName := e2test.RandomWord()
-		updateAge := e2crypto.RandomNumber(15, 40)
+		updateAge, err := e2crypto.RandomNumber[int](15, 40)
+		if err != nil {
+			t.Fatalf("random update age error: %v", err)
+		}
 		t1.Name = updateName
 		t1.Age = updateAge
 		r, err := Update(db, t1)
@@ -62,5 +68,4 @@ func Test_01(t *testing.T) {
 		}
 		t.Log(r)
 	})
-
 }

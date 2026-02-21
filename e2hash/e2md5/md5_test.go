@@ -7,7 +7,7 @@ import (
 func Test_HeadTailHex(t *testing.T) {
 	head := make([]byte, 128)
 	tail := make([]byte, 128)
-	for i := 0; i < 128; i++ {
+	for i := range 128 {
 		head[i] = 'a'
 		tail[i] = 'b'
 	}
@@ -16,7 +16,7 @@ func Test_HeadTailHex(t *testing.T) {
 	t.Log(r1)
 
 	data := make([]byte, 2048)
-	for i := 0; i < 128; i++ {
+	for i := range 128 {
 		data[i] = 'a'
 		data[(len(data)-128)+i] = 'b'
 	}

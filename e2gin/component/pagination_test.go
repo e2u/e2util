@@ -34,7 +34,7 @@ type Field struct {
 func createStructType(structName string, fs []Field) reflect.Type {
 	// 创建结构体字段
 	fields := make([]reflect.StructField, len(fs))
-	for i := 0; i < len(fs); i++ {
+	for i := range fs {
 		fields[i].Name = fs[i].Name
 		fields[i].Type = fs[i].Type
 		fields[i].Tag = reflect.StructTag(fmt.Sprintf(`json:"%s"`, fs[i].Tag)) // 可以添加标签
@@ -57,12 +57,12 @@ func Test_JsonTag(t *testing.T) {
 	prs := createStructType("PPPP", []Field{
 		{
 			Name: "Name",
-			Type: reflect.TypeOf(""),
+			Type: reflect.TypeFor[string](),
 			Tag:  "nam0e",
 		},
 		{
 			Name: "Items",
-			Type: reflect.TypeOf([]Product{}),
+			Type: reflect.TypeFor[[]Product](),
 			Tag:  "afffe",
 		},
 	})

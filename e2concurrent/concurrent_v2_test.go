@@ -90,7 +90,7 @@ func Test_c20(t *testing.T) {
 	ctx := context.Background()
 	tasks := make(chan Task[string, string], 100)
 	go func() {
-		for i := 0; i < 2000; i++ {
+		for i := range 2000 {
 			tasks <- NewTask(&DummyWorker{}, fmt.Sprintf("Task%d", i))
 		}
 		close(tasks)

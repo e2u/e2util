@@ -44,7 +44,7 @@ type CAPTCHAService interface {
 type OAuthProvider interface {
 	GetAuthURL(state string) string
 	ExchangeCode(code, redirectURI string) (accessToken, refreshToken string, err error)
-	GetUserInfo(accessToken string) (map[string]interface{}, error)
+	GetUserInfo(accessToken string) (map[string]any, error)
 }
 
 type OAuthProviders map[string]OAuthProvider

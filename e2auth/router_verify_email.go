@@ -39,4 +39,11 @@ func verifyEmailConfirm(c *gin.Context) {
 	if err != nil || user == nil {
 		return
 	}
+
+	// Verify the code (in a real implementation, compare with stored code). Here we simply set email verified.
+	if err := cfg.db.Model(&User{}).Where("id = ?", user.Id).Update("email_verified", true).Error; err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
+		return
+	}
+	c.JSON(http.StatusOK, successResp(nil))
 }

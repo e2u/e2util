@@ -72,7 +72,7 @@ func (t Date) String() string {
 	return t.t.Format(DateFormat)
 }
 
-func MustToJSONByte(v interface{}, indent ...bool) []byte {
+func MustToJSONByte(v any, indent ...bool) []byte {
 	if len(indent) > 0 && indent[0] {
 		b, err := json.MarshalIndent(v, "", "    ")
 		if err != nil {
@@ -90,24 +90,24 @@ func MustToJSONByte(v interface{}, indent ...bool) []byte {
 	return b
 }
 
-func FSprintf(io io.Writer, v interface{}, indent ...bool) {
+func FSprintf(io io.Writer, v any, indent ...bool) {
 	e2exec.SilentError(io.Write(MustToJSONByte(v, indent...)))
 }
 
-func MustToJSONString(v interface{}, indent ...bool) string {
+func MustToJSONString(v any, indent ...bool) string {
 	return string(MustToJSONByte(v, indent...))
 }
 
-func MustFromJSONByte(b []byte, v interface{}) error {
+func MustFromJSONByte(b []byte, v any) error {
 	return json.Unmarshal(b, v)
 }
 
-func MustFromJSONString(s string, v interface{}) error {
+func MustFromJSONString(s string, v any) error {
 	return json.Unmarshal([]byte(s), v)
 }
 
 func MustIndentJSONByte(b []byte) []byte {
-	var v interface{}
+	var v any
 	_ = MustFromJSONByte(b, &v)
 	if v != nil {
 		return MustToJSONByte(v, true)
@@ -119,7 +119,7 @@ func MustIndentJSONString(s string) string {
 	return string(MustIndentJSONByte([]byte(s)))
 }
 
-func MustFromReader(r io.Reader, v interface{}) error {
+func MustFromReader(r io.Reader, v any) error {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		logrus.Errorf("read error=%v", err)
@@ -128,7 +128,7 @@ func MustFromReader(r io.Reader, v interface{}) error {
 	return MustFromJSONByte(b, v)
 }
 
-func MustToJSONPString(v interface{}, callback ...string) string {
+func MustToJSONPString(v any, callback ...string) string {
 	j := MustToJSONString(v)
 
 	if len(callback) == 0 {
@@ -137,7 +137,7 @@ func MustToJSONPString(v interface{}, callback ...string) string {
 	return j
 }
 
-func MustToSecureJSONString(v interface{}, prefix ...string) string {
+func MustToSecureJSONString(v any, prefix ...string) string {
 	j := MustToJSONString(v)
 	if len(prefix) == 0 {
 		return fmt.Sprintf(`while(1);%s`, j)

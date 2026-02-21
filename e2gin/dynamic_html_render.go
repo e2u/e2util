@@ -32,7 +32,7 @@ func NewDynamicHTMLRender(dir string, args ...any) *DynamicHTMLRender {
 	return dhr
 }
 
-func (d *DynamicHTMLRender) Instance(name string, data interface{}) render.Render {
+func (d *DynamicHTMLRender) Instance(name string, data any) render.Render {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 

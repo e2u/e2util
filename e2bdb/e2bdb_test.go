@@ -71,8 +71,11 @@ func Test_BDB(t *testing.T) {
 	})
 
 	t.Run("test storage and load", func(t *testing.T) {
-		id := e2crypto.RandomString(8)
-		err := bdb.StorageFile(&File{
+		id, err := e2crypto.RandomString(8)
+		if err != nil {
+			t.Fatalf("random string error: %v", err)
+		}
+		err = bdb.StorageFile(&File{
 			Key:          id,
 			Name:         e2test.RandomWord(),
 			Size:         100,
@@ -81,12 +84,11 @@ func Test_BDB(t *testing.T) {
 			Reader:       bytes.NewBufferString("hello"),
 		}, DefaultOptions())
 		if err != nil {
-			t.Fatalf(">>>>>>>>> storage error=%v", err)
+			t.Fatalf("storage error=%v", err)
 		}
-
 		f, err := bdb.LoadFile(id)
 		if err != nil {
-			t.Fatalf(">>>>>>>>> load error=%v", err)
+			t.Fatalf("load error=%v", err)
 		}
 		t.Log(f)
 	})

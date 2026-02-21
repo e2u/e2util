@@ -23,9 +23,9 @@ func TestMustStringValue(t *testing.T) {
 
 func TestNeverNullPoint(t *testing.T) {
 	tests := []struct {
-		input    interface{}
-		defVal   interface{}
-		expected interface{}
+		input    any
+		defVal   any
+		expected any
 	}{
 		{nil, "default", "default"},
 		{"", "default", "default"},
@@ -128,9 +128,9 @@ func TestNullThen(t *testing.T) {
 
 func TestValueOrDefault(t *testing.T) {
 	tests := []struct {
-		input    interface{}
-		defVal   interface{}
-		expected interface{}
+		input    any
+		defVal   any
+		expected any
 	}{
 		{nil, "default", "default"},
 		{"", "default", "default"},
@@ -157,9 +157,9 @@ func TestValueOrDefault(t *testing.T) {
 
 func TestExpectOrDefault(t *testing.T) {
 	tests := []struct {
-		input    interface{}
-		defVal   interface{}
-		expected interface{}
+		input    any
+		defVal   any
+		expected any
 		ok       bool
 	}{
 		{"hello", "default", "hello", true},

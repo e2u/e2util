@@ -3,6 +3,7 @@ package e2auth
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,9 +27,7 @@ func (r APIResponse) MarshalJSON() ([]byte, error) {
 		data["err_code"] = r.ErrCode
 	}
 
-	for k, v := range r.dynamicData {
-		data[k] = v
-	}
+	maps.Copy(data, r.dynamicData)
 	return json.Marshal(data)
 }
 

@@ -71,7 +71,7 @@ func Benchmark_RBTreeMap_Store(b *testing.B) {
 
 func Benchmark_RBTreeMap_Load(b *testing.B) {
 	rbt := NewRBTreeMap[string, string](StringComparer{})
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		rbt.Store(fmt.Sprintf("key%d", i), "value")
 	}
 	b.ResetTimer()
@@ -82,7 +82,7 @@ func Benchmark_RBTreeMap_Load(b *testing.B) {
 
 func Benchmark_RBTreeMap_RangeAscending(b *testing.B) {
 	rbt := NewRBTreeMap[string, string](StringComparer{})
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		rbt.Store(fmt.Sprintf("key%d", i), "value")
 	}
 	b.ResetTimer()

@@ -1,17 +1,13 @@
 package e2slice
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
 
 func IncludeString(as []string, s string) bool {
-	for idx := range as {
-		if as[idx] == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(as, s)
 }
 
 func ContainString(as []string, s string) bool {
@@ -42,21 +38,11 @@ func HasSuffix(as []string, suffix string) bool {
 }
 
 func ContainInt64(is []int64, i int64) bool {
-	for idx := range is {
-		if is[idx] == i {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(is, i)
 }
 
 func BoolSliceInclude(ba []bool, c bool) bool {
-	for _, b := range ba {
-		if b == c {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ba, c)
 }
 
 func CompareStringSlice(a, b []string) bool {
@@ -67,7 +53,7 @@ func CompareStringSlice(a, b []string) bool {
 	sort.Strings(a)
 	sort.Strings(b)
 
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		if a[i] != b[i] {
 			return false
 		}
@@ -116,9 +102,7 @@ func HasConsecutiveNumbers[T int | int8 | int16 | int32 | int64 | uint | uint8 |
 	if len(nums) < 2 {
 		return false
 	}
-	sort.Slice(nums, func(i, j int) bool {
-		return nums[i] < nums[j]
-	})
+	slices.Sort(nums)
 	for i := 1; i < len(nums); i++ {
 		if nums[i]-nums[i-1] == 1 {
 			return true

@@ -68,7 +68,7 @@ func RandomWords(minNumber, maxNumber int64) []string {
 
 	var ws []string
 	number, _ := e2crypto.RandomNumber(minNumber, maxNumber)
-	for i := int64(0); i < number; i++ {
+	for range number {
 		ws = append(ws, RandomWord())
 	}
 	return ws

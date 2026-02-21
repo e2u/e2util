@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go test ./...)",
+      "Bash(curl -s https://www.apache.org)",
+      "Bash(ls -d e2*/)",
+      "Bash(ls */README.md)",
+      "Bash(ls **/*_test.go)",
+      "Bash(for d in e2*/)",
+      "Bash(do if ls $d/*_test.go)",
+      "Bash(then echo $d)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(test -e e2hash/e2hash_test.go)",
+      "Bash(test -e e2io/e2io_test.go)",
+      "Bash(test -e e2logrus/e2logrus_test.go)",
+      "Bash(go test ./e2auth -run TestMFAVerify)",
+      "Bash(go test ./e2auth -run TestMFAVerifySuccess)",
+      "Bash(go build ./...)",
+      "Bash(go test ./e2auth/... -v -count=1)",
+      "Bash(go test ./e2auth/... -run \"^TestMFA\" -v)",
+      "Bash(go test ./e2auth/... -run \"^TestMFAVerifySuccess$\" -v)",
+      "Skill(commit-commands:commit)",
+      "Bash(go build ./e2html/...)",
+      "Bash(go test ./e2html/... -v)",
+      "Bash(git add e2html/e2html.go e2html/tags.go)",
+      "Bash(git commit -m \"Fix e2html security and reliability issues\n\n- Add nil check in Attr.Set\\(\\) to prevent panic on nil map\n- Fix TS\\(\\) type assertion to use safe \"comma ok\" pattern\n- Add input validation to Doctype\\(\\) to prevent XSS\n- Add security warning documentation to HTML\\(\\) method\")",
+      "Bash(git commit -m \"Fix e2html security and reliability issues\n\n- Add nil check in Attr.Set\\(\\) to prevent panic on nil map\n- Fix TS\\(\\) type assertion to use safe comma ok pattern\n- Add input validation to Doctype\\(\\) to prevent XSS\n- Add security warning documentation to HTML\\(\\) method\")",
+      "Bash(git add e2html/e2html.go)",
+      "Bash(git commit -m \"Fix e2html HTML\\(\\) method security vulnerability\n\n- Add dangerous content detection for scripts, event handlers, etc.\n- Return empty string if dangerous content is detected\n- Add comprehensive security documentation\n- Add regexp import for pattern matching\")",
+      "Bash(git commit -m \"Remove e2html TAG.HTML\\(\\) method to eliminate XSS risk\n\nThe HTML\\(\\) method bypassed HTML escaping and could lead to XSS attacks.\nRemoving it entirely forces users to use String\\(\\) which properly escapes output.\nThis is a breaking change but improves security by default.\")",
+      "Bash(git commit -m \"Remove TAG.HTML\\(\\) method from e2html to eliminate XSS risk\n\nThe HTML\\(\\) method bypassed HTML escaping and could lead to XSS attacks.\nRemoving it entirely forces users to use String\\(\\) which properly escapes output.\nThis is a breaking change but improves security by default.\")",
+      "Bash(go build ./e2crypto/...)",
+      "Bash(go test ./e2crypto/... -v)",
+      "Bash(go test ./e2crypto/... -v -run \"TestGenerateRsaKeyPair|TestParseRsaPrivateKeyFromPemString|TestExportRsaPublicKeyAsPemStr\")",
+      "Bash(go test ./e2crypto/... -v -run \"TestParseRsaPrivateKeyFromPemString\")",
+      "Bash(go test ./e2crypto/... -v -run \"TestExportRsaPublicKeyAsPemStr/export_valid_public_key\")",
+      "Bash(git add e2crypto/)",
+      "Bash(git commit -m \"Enhance e2crypto package with comprehensive improvements\n\nRSA Improvements:\n- Add configurable RSA key generation with DefaultRSAKeyBits \\(3072\\) and MinRSAKeyBits \\(2048\\)\n- Add type-safe key parsing with PKCS1/PKCS8 support\n- Add proper error handling and nil checks\n\nTOTP Enhancements:\n- Add TOTPConfig struct for flexible configuration\n- Support SHA1/SHA256/SHA512 algorithms\n- Support configurable digits \\(6/7/8\\)\n- Add configuration validation\n\nNew Features:\n- Add password.go: bcrypt password hashing, HMAC-SHA256/512\n- Add signature.go: RSA digital signatures with PKCS#1 v1.5\n\nTest Coverage:\n- Add aes_test.go: AES-GCM encryption/decryption tests\n- Add password_test.go: Password hashing and HMAC tests\n- Add signature_test.go: RSA signature tests\n- Add rsa_test.go: RSA key generation and PEM tests\n- Add totp_test.go: TOTP configuration and verification tests\")"
+    ]
+  }
+}

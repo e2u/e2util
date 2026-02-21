@@ -2,6 +2,7 @@ package e2auth
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 )
@@ -15,7 +16,7 @@ func revokeSession(sessionId string) error {
 }
 
 func updateSession(sessionId string, userId string, token string, expiresAt time.Time) error {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"token":      token,
 		"expires_at": expiresAt,
 	}
@@ -85,6 +86,14 @@ func updateUserEmail(userId string, email string) error {
 func getSecretKey() []byte {
 	return cfg.secretKey
 }
-func isAmin(userId string) (bool, error) { // TODO
+func isAdmin(userId string) (bool, error) {
+	var user User
+	err := cfg.db.Model(&User{}).Select("roles").Where("id = ?", userId).First(&user).Error
+	if err != nil {
+		return false, err
+	}
+	if slices.Contains(user.Roles, "admin") {
+		return true, nil
+	}
 	return false, nil
 }

@@ -17,11 +17,11 @@ const (
 
 // HttpPatch 操作的数据模型
 type HttpPatch struct {
-	Op        string      `json:"op,omitempty"`        // must in test,remove,add,replace,move,copy
-	From      string      `json:"from,omitempty"`      // use in move,copy op
-	Path      string      `json:"path,omitempty"`      // like database table colukn
-	Value     interface{} `json:"value,omitempty"`     // values
-	Extension interface{} `json:"extension,omitempty"` // extension values
+	Op        string `json:"op,omitempty"`        // must in test,remove,add,replace,move,copy
+	From      string `json:"from,omitempty"`      // use in move,copy op
+	Path      string `json:"path,omitempty"`      // like database table colukn
+	Value     any    `json:"value,omitempty"`     // values
+	Extension any    `json:"extension,omitempty"` // extension values
 }
 
 // AllowOp 检查当前请求是否在允许操作列表中

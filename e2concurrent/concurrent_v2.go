@@ -25,7 +25,7 @@ type Trace struct {
 type Result[Out any] struct {
 	Value Out            `json:"value,omitempty"` // The result value of the task, type-safe via generics
 	Err   error          `json:"err,omitempty"`   // Error if the task failed, nil if successful
-	Arg   Arg[any]       `json:"arg,omitempty"`   // Original input argument, included only if Task.RetainInput is true
+	Arg   Arg[any]       `json:"arg"`             // Original input argument, included only if Task.RetainInput is true
 	Trace `json:"trace"` // Embedded Trace struct for execution metadata
 }
 

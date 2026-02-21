@@ -9,7 +9,7 @@ import (
 
 func Test_Add(t *testing.T) {
 	var m sync.Map
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		v, _ := Add[int](&m, "abc", -1)
 		//t.Log(v)
 		_ = v

@@ -46,7 +46,7 @@ func SendSignalToProcess(processName string, signal os.Signal) error {
 		slog.Error("execute command", "error", err, "command", getPidCmd)
 		return err
 	}
-	for _, pid := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	for pid := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
 		process, err := os.FindProcess(e2strconv.MustParseInt(pid))
 		if err != nil {
 			slog.Error("find process", "error", err, "pid", pid)
@@ -62,7 +62,7 @@ func SendSignalToProcess(processName string, signal os.Signal) error {
 
 func RetryRun(maxRetry int, sleep time.Duration, fn func(retryCount int) error) error {
 	var lastErr error
-	for i := 0; i < maxRetry; i++ {
+	for i := range maxRetry {
 		if err := fn(i); err != nil {
 			lastErr = err
 			time.Sleep(sleep)

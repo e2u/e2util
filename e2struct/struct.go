@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func PrepareStruct(v interface{}) {
+func PrepareStruct(v any) {
 	// 取得值的 reflect.Value
 	val := reflect.ValueOf(v)
 
@@ -13,7 +13,7 @@ func PrepareStruct(v interface{}) {
 	typ := reflect.TypeOf(v)
 
 	// 如果值不是 struct，直接返回
-	if typ.Kind() != reflect.Ptr || val.IsNil() || val.Elem().Kind() != reflect.Struct {
+	if typ.Kind() != reflect.Pointer || val.IsNil() || val.Elem().Kind() != reflect.Struct {
 		return
 	}
 
@@ -28,7 +28,7 @@ func PrepareStruct(v interface{}) {
 		}
 
 		// 如果 field 是另外一個 struct 的指針，且為 nil，初始化這個指針所指向的 struct
-		if fieldType.Type.Kind() == reflect.Ptr && fieldType.Type.Elem().Kind() == reflect.Struct {
+		if fieldType.Type.Kind() == reflect.Pointer && fieldType.Type.Elem().Kind() == reflect.Struct {
 			if field.IsNil() {
 				fieldValue := reflect.New(fieldType.Type.Elem())
 				field.Set(fieldValue)
