@@ -155,15 +155,19 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(file.LocalPath) {
 				ffs = os.DirFS(file.LocalPath)
 				if _, loaded := watchingStatic.LoadOrStore(file.LocalPath, struct{}{}); !loaded {
-					go e2io.WatchDir(file.LocalPath, func(s string, event fsnotify.Event) {
-						ffs = os.DirFS(file.LocalPath)
-						settingEtag(ffs, file.HttpPath)
+					// Capture loop variables for goroutine
+					localPath := file.LocalPath
+					httpPath := file.HttpPath
+					go e2io.WatchDir(localPath, func(s string, event fsnotify.Event) {
+						// Create new FS instance after file change
+						newFs := os.DirFS(localPath)
+						settingEtag(newFs, httpPath)
 					})
 				}
 			} else {
 				ffs = file.FS
 			}
-			registerStaticFiles(eng, opt, ffs, file.HttpPath)
+			registerStaticFiles(eng, ffs, file.HttpPath, file.LocalPath)
 			settingEtag(ffs, file.HttpPath)
 		}
 	}
@@ -188,17 +192,25 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	return eng
 }
 
+// loadIndexPage 从静态文件中加载 index.html
+// 支持从任何配置的静态文件目录加载，不仅限于根路径
 func loadIndexPage(sfs []*StaticFiles) []byte {
-	for _, fileName := range []string{"index.html", "index.htm"} {
+	return loadHTMLPage(sfs, "index")
+}
+
+// loadHTMLPage 从静态文件中加载指定名称的 HTML 文件
+// 例如 name="login" 会查找 login.html 或 login.htm
+func loadHTMLPage(sfs []*StaticFiles, name string) []byte {
+	for _, ext := range []string{".html", ".htm"} {
+		fileName := name + ext
 		for _, sf := range sfs {
-			if sf.HttpPath != "/" {
-				continue
-			}
+			// 优先从本地路径加载（开发模式）
 			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(sf.LocalPath) {
 				if b, err := os.ReadFile(filepath.Join(sf.LocalPath, fileName)); err == nil {
 					return b
 				}
 			}
+			// 从嵌入的 FS 加载
 			if f, err := sf.Open(fileName); err == nil {
 				if b, rErr := io.ReadAll(f); rErr == nil {
 					_ = f.Close()
@@ -209,6 +221,26 @@ func loadIndexPage(sfs []*StaticFiles) []byte {
 		}
 	}
 	return nil
+}
+
+// hasHTMLPage 检查是否存在指定名称的 HTML 文件
+func hasHTMLPage(sfs []*StaticFiles, name string) bool {
+	for _, ext := range []string{".html", ".htm"} {
+		fileName := name + ext
+		for _, sf := range sfs {
+			// 检查本地路径（开发模式）
+			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(sf.LocalPath) {
+				if _, err := os.Stat(filepath.Join(sf.LocalPath, fileName)); err == nil {
+					return true
+				}
+			}
+			// 检查嵌入的 FS
+			if _, err := sf.Open(fileName); err == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func startPprof(eng *gin.Engine, opt *Option) {
@@ -247,14 +279,89 @@ func startPprof(eng *gin.Engine, opt *Option) {
 	}()
 }
 
-// process staticFS / 301 redirect too many times issues
+// noRouteStaticIndex 处理静态 HTML 页面路由
+// 支持 SPA 和非 SPA 应用：
+//   - 非 SPA: /login → 查找并返回 login.html
+//   - SPA: 如果找不到对应页面，返回 index.html 由前端路由处理
 func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
+	// 预加载 index.html（用于 SPA 回退）
 	indexPageByte := loadIndexPage(sfs)
+
 	return func(c *gin.Context) {
-		reqUri, _, _ := strings.Cut(c.Request.URL.String(), "?")
-		if reqUri == "/index.html" || reqUri == "/" || reqUri == "" {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+		// 只处理 GET 和 HEAD 请求
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			c.Next()
+			return
 		}
+
+		reqUri := c.Request.URL.Path
+
+		// 安全检查：拒绝包含路径遍历或空字节的请求
+		if strings.Contains(reqUri, "..") || strings.ContainsRune(reqUri, 0) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		// 排除已知的 API 路径模式
+		apiPrefixes := []string{"/api/", "/__app/", "/static/", "/assets/", "/favicon.ico"}
+		for _, prefix := range apiPrefixes {
+			if strings.HasPrefix(reqUri, prefix) {
+				c.Next()
+				return
+			}
+		}
+
+		// 排除文件扩展名（如 .js, .css, .png 等），但保留 .html
+		if ext := filepath.Ext(reqUri); ext != "" && ext != ".html" {
+			c.Next()
+			return
+		}
+
+		// 检查 Accept 头，确保是浏览器请求
+		accept := c.GetHeader("Accept")
+		isBrowserRequest := accept == "" ||
+			strings.Contains(accept, "text/html") ||
+			strings.Contains(accept, "*/*")
+		if !isBrowserRequest {
+			c.Next()
+			return
+		}
+
+		// 提取页面名称（去掉前导 / 和 .html 后缀）
+		pageName := strings.TrimPrefix(reqUri, "/")
+		pageName = strings.TrimSuffix(pageName, ".html")
+
+		// 情况 1: 根路径，直接返回 index.html
+		if pageName == "" || pageName == "index" {
+			if len(indexPageByte) > 0 {
+				c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+				c.Abort()
+				return
+			}
+			c.Next()
+			return
+		}
+
+		// 情况 2: 非根路径，首先尝试查找对应的 .html 文件（非 SPA 支持）
+		// 例如 /login → 查找 login.html
+		if hasHTMLPage(sfs, pageName) {
+			pageContent := loadHTMLPage(sfs, pageName)
+			if len(pageContent) > 0 {
+				c.Data(http.StatusOK, "text/html; charset=utf-8", pageContent)
+				c.Abort()
+				return
+			}
+		}
+
+		// 情况 3: 没有找到对应页面，如果是 SPA 则返回 index.html
+		// 这样前端路由可以处理 /login 这样的路径
+		if len(indexPageByte) > 0 {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+			c.Abort()
+			return
+		}
+
+		c.Next()
 	}
 }
 
@@ -272,7 +379,12 @@ func noRouteFavicon() gin.HandlerFunc {
 func noRouteProxy(opt *Option) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if opt.NoRouteProxyBackendURL != "" {
-			proxyURL, _ := url.Parse(opt.NoRouteProxyBackendURL)
+			proxyURL, err := url.Parse(opt.NoRouteProxyBackendURL)
+			if err != nil {
+				logrus.Errorf("invalid proxy URL: %v", err)
+				c.AbortWithStatus(http.StatusBadGateway)
+				return
+			}
 			if hostPortActive(proxyURL.Host) {
 				proxy := httputil.NewSingleHostReverseProxy(proxyURL)
 				proxy.FlushInterval = time.Millisecond * 100
@@ -286,9 +398,14 @@ func noRouteProxy(opt *Option) gin.HandlerFunc {
 					return nil
 				}
 				proxy.ServeHTTP(c.Writer, c.Request)
+				return
 			}
+			// Proxy configured but backend not available
+			c.AbortWithStatus(http.StatusBadGateway)
 			return
 		}
+		// No proxy configured, return 404
+		c.AbortWithStatus(http.StatusNotFound)
 	}
 }
 
@@ -340,9 +457,9 @@ func customRecovery(c *gin.Context, msg any) {
 	logrus.Errorf("Recovered %v", strings.Repeat("-", 50)+">8")
 
 	msgStr := func() string {
-		switch msg.(type) {
+		switch v := msg.(type) {
 		case error:
-			return msg.(error).Error()
+			return v.Error()
 		default:
 			return fmt.Sprintf("%v", msg)
 		}

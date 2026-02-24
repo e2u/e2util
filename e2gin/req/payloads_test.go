@@ -82,8 +82,8 @@ func Test_ParsePayload(t *testing.T) {
 			{"fff@lte","fff","@lte","<= "},
 			{"ggg@gt","ggg","@gt",">"},
 			{"hhh@gte","hhh","@gte",">="},
-			{"mmm@like","mmm","@like","LIKE"},
-			{"nnn@nlike","nnn","@nlike","NOT LIKE"},
+			{"mmm@like","mmm","@like","ILIKE"},
+			{"nnn@nlike","nnn","@nlike","NOT ILIKE"},
 			{"is1@is_null","is1","@is_null","IS NULL"},
 			{"is2@is_not_null","is2","@is_not_null","IS NOT NULL"},
 			{"empty@is_empty","empty","@is_empty","IS EMPTY"},
@@ -158,7 +158,7 @@ func Test_ParsePayload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if pp.Page != 2 || pp.PrePage != 50 {
+		if pp.Page != 2 || pp.PerPage != 50 {
 			t.Fatalf("unexpected PaginationPayload: %+v", pp)
 		}
 	})
@@ -168,14 +168,14 @@ func Test_ParsePayload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(pp, PaginationPayload{Page:1, PrePage:10}) {
+		if !reflect.DeepEqual(pp, PaginationPayload{Page:1, PerPage:10}) {
 			t.Fatalf("expected defaults, got: %+v", pp)
 		}
 		pp2, err := ParsePaginationPayload(`{"page":3}`)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if pp2.Page != 3 || pp2.PrePage != 10 {
+		if pp2.Page != 3 || pp2.PerPage != 10 {
 			t.Fatalf("expected default perPage, got: %+v", pp2)
 		}
 	})
@@ -185,7 +185,7 @@ func Test_ParsePayload(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for invalid pagination payload")
 		}
-		if pp.Page != 1 || pp.PrePage != 10 {
+		if pp.Page != 1 || pp.PerPage != 10 {
 			t.Fatalf("expected defaults on error, got: %+v", pp)
 		}
 	})

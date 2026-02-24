@@ -34,11 +34,11 @@ func ParseSortPayload(s string) (SortPayload, error) {
 
 type PaginationPayload struct {
 	Page    int `json:"page"`
-	PrePage int `json:"perPage"`
+	PerPage int `json:"perPage"`
 }
 
 func ParsePaginationPayload(s string) (PaginationPayload, error) {
-	r := PaginationPayload{Page: 1, PrePage: 10}
+	r := PaginationPayload{Page: 1, PerPage: 10}
 	err := e2json.MustFromJSONString(s, &r)
 	return r, err
 }
@@ -103,6 +103,9 @@ func ParseFilterPayload(s string) ([]Filter, error) {
 	return rs, nil
 }
 
+// rangeRegex 预编译正则，避免每次调用重新编译
+var rangeRegex = regexp.MustCompile(`^(?P<type>.+)=(?P<start>\d+)-(?P<end>\d+)$`)
+
 type RangePayload struct {
 	Type  string
 	Start int
@@ -111,9 +114,8 @@ type RangePayload struct {
 
 func ParseRangePayload(s string) (RangePayload, error) {
 	r := RangePayload{}
-	regex := regexp.MustCompile(`^(?P<type>.+)=(?P<start>\d+)-(?P<end>\d+)$`)
 
-	if mv, ok := e2regexp.NamedFindStringSubmatch(s, regex); ok {
+	if mv, ok := e2regexp.NamedFindStringSubmatch(s, rangeRegex); ok {
 		if v, vok := mv.DefaultString("type", ""); vok {
 			r.Type = v
 		}

@@ -1,109 +1,339 @@
----
+# e2gin
 
-# e2gin Documentation
-
-## 項目概覽 / Project Overview
-
-`e2gin` 是 `e2util` 下的子包，位於 `github.com/e2u/e2util/e2gin`，提供了一組增強 `gin` Web 框架的工具函數和功能，主要包含以下模塊：
-1. **動態模板渲染**：支持模板文件的動態加載與監控，適用於開發和生產環境。
-2. **靜態文件服務**：提供靜態文件服務，支持 ETag 緩存和壓縮。
-3. **應用配置與路由**：簡化 `gin` 引擎配置，支持健康檢查、Pprof 調試和反向代理等功能。
-此包依賴 `github.com/gin-gonic/gin`、`github.com/sirupsen/logrus` 等庫，並整合了 `e2util` 的多個工具，提供高效的 Web 應用開發支持。
-
-`e2gin` is a sub-package under `e2util`, located at `github.com/e2u/e2util/e2gin`, offering a set of tools and enhancements for the `gin` web framework. It includes the following main modules:
-1. **Dynamic Template Rendering**: Supports dynamic loading and monitoring of template files, suitable for both development and production environments.
-2. **Static File Serving**: Provides static file serving with ETag caching and compression support.
-3. **Application Configuration and Routing**: Simplifies `gin` engine configuration, supporting health checks, Pprof debugging, and reverse proxy features.
-This package depends on `github.com/gin-gonic/gin`, `github.com/sirupsen/logrus`, and integrates multiple `e2util` tools, offering efficient support for web application development.
+`e2gin` 是 `e2util` 的 Web 框架增强包，基于 [Gin](https://github.com/gin-gonic/gin) 提供了一套完整的 Web 应用开发工具，支持 SPA/非 SPA 应用、静态文件服务、动态模板渲染等功能。
 
 ---
 
-## 使用方法 / Usage
+## 安装
 
-### 1. 配置並啟動動態模板渲染 / Configure and Start Dynamic Template Rendering
+```bash
+go get github.com/e2u/e2util/e2gin
+```
+
+---
+
+## 快速开始
+
+### 基础用法
 
 ```go
 package main
 
 import (
-"github.com/e2u/e2util/e2gin"
-"github.com/gin-gonic/gin"
+    "github.com/e2u/e2util/e2gin"
+    "embed"
 )
 
+//go:embed static/*
+var staticFS embed.FS
+
 func main() {
-// 初始化 gin 引擎 / Initialize gin engine
-r := gin.Default()
+    opt := &e2gin.Option{
+        StaticFiles: []*e2gin.StaticFiles{
+            {
+                FS:       staticFS,
+                HttpPath: "/",
+            },
+        },
+    }
 
-// 配置動態模板渲染 / Configure dynamic template rendering
-render := e2gin.NewDynamicHTMLRender("./templates")
-r.HTMLRender = render
-
-// 定義路由 / Define route
-r.GET("/", func(c *gin.Context) {
-c.HTML(200, "index.html", nil)
-})
+    eng := e2gin.DefaultEngine(opt)
+    e2gin.StartAndStopHttp(eng, "0.0.0.0", 8080, func() {})
 }
 ```
 
-### 2. 配置並運行默認引擎 / Configure and Run Default Engine
+---
+
+## 核心功能
+
+### 1. 静态文件服务
+
+支持 SPA（单页应用）和非 SPA 应用的路由处理：
+
+| 场景 | 请求路径 | 存在文件 | 返回内容 |
+|------|----------|----------|----------|
+| **SPA** | `/login` | `index.html` | `index.html`（前端路由处理） |
+| **非 SPA** | `/login` | `login.html` | `login.html`（独立页面） |
+| **混合** | `/about` | `about.html` | `about.html`（优先） |
+| **混合** | `/dashboard` | 无，但 `index.html` 存在 | `index.html`（SPA 回退） |
 
 ```go
-package main
-
-import (
-"github.com/e2u/e2util/e2gin"
-)
-
-func main() {
-// 配置默認引擎 / Configure default engine
 opt := &e2gin.Option{
-StaticFiles: []*e2gin.StaticFiles{{LocalPath: "./static", HttpPath: "/static"}},
+    StaticFiles: []*e2gin.StaticFiles{
+        // 根路径静态文件
+        {
+            FS:        webFS,       // 嵌入的静态文件
+            HttpPath:  "/",         // HTTP 路径
+            LocalPath: "./static",  // 开发模式热重载路径
+        },
+        // 子路径静态文件
+        {
+            FS:        assetsFS,
+            HttpPath:  "/assets",
+        },
+    },
 }
+```
+
+**开发模式热重载**：当 `gin.Mode() != gin.ReleaseMode` 且设置了 `LocalPath`，文件变更会自动生效，无需重启服务器。
+
+---
+
+### 2. SPA vs 非 SPA 配置
+
+#### SPA 应用（React/Vue/Angular）
+
+```go
+// 项目结构：static/index.html (SPA 入口)
+opt := &e2gin.Option{
+    StaticFiles: []*e2gin.StaticFiles{
+        {
+            FS:       staticFS,
+            HttpPath: "/",
+            LocalPath: "./build", // 开发模式热重载
+        },
+    },
+}
+// /login, /dashboard 等路径都会返回 index.html
+```
+
+#### 非 SPA 应用（多页 HTML）
+
+```go
+// 项目结构：
+// static/
+//   ├── index.html
+//   ├── login.html
+//   ├── dashboard.html
+
+opt := &e2gin.Option{
+    StaticFiles: []*e2gin.StaticFiles{
+        {
+            FS:       staticFS,
+            HttpPath: "/",
+            LocalPath: "./static",
+        },
+    },
+}
+// /login → login.html
+// /dashboard → dashboard.html
+// / → index.html
+```
+
+#### 混合应用
+
+```go
+// 部分页面独立 HTML，部分使用 SPA
+opt := &e2gin.Option{
+    StaticFiles: []*e2gin.StaticFiles{
+        {
+            FS:       staticFS,
+            HttpPath: "/",
+        },
+    },
+}
+// /login.html → login.html (独立页面)
+// /app/* → index.html (SPA 路由)
+```
+
+---
+
+### 3. 动态模板渲染
+
+支持模板热重载（开发模式）和 HTML 压缩：
+
+```go
+opt := &e2gin.Option{
+    Template: &e2gin.Template{
+        FS:       templateFS,
+        LocalPath: "./templates", // 开发模式热重载
+        FuncMap: template.FuncMap{
+            "upper": strings.ToUpper,
+        },
+        Option: e2gin.TemplatesOption{
+            TrimTags:   true,  // 去除模板标签空白
+            MinifyHTML: true,  // HTML 压缩
+        },
+    },
+}
+
 eng := e2gin.DefaultEngine(opt)
 
-// 啟動服務器 / Start server
-e2gin.StartAndStopHttp(eng, "0.0.0.0", 8080, func() {})
+// 在 handler 中使用
+type PageData struct {
+    Title string
+}
+
+eng.GET("/", func(c *gin.Context) {
+    c.HTML(200, "index.html", PageData{Title: "首页"})
+})
+```
+
+---
+
+### 4. 配置选项
+
+```go
+type Option struct {
+    Root                   string           // URL 根路径，默认 "/"
+    StaticFiles            []*StaticFiles   // 静态文件配置
+    DisabledPprof          bool             // 禁用 Pprof
+    PprofPathPrefix        string           // Pprof 路径前缀
+    DisableHealth          bool             // 禁用健康检查
+    DisableRecovery        bool             // 禁用 panic 恢复
+    SkipLogPaths           []string         // 跳过日志记录的路径
+    HealthPathPrefix       string           // 健康检查路径前缀
+    Engine                 *gin.Engine      // 自定义 gin 引擎
+    NoRouteProxyBackendURL string           // 反向代理后端地址
+    DisableGzip            bool             // 禁用 Gzip
+    LogrusLogger           *logrus.Logger   // 自定义日志
+    Template               *Template        // 模板配置
 }
 ```
 
 ---
 
-## 安裝步驟 / Installation Steps
+### 5. 完整示例
 
-1. **確保 Go 環境**
-確認已安裝 Go（建議使用 1.16 或以上版本），並設置好 `GOPATH`。
-Ensure Go (version 1.16 or higher recommended) is installed and `GOPATH` is set.
+```go
+package main
 
-2. **下載項目**
-在終端運行以下命令 / Run the following command in your terminal:
-```bash
-go get -u github.com/e2u/e2util/e2gin
+import (
+    "embed"
+    "time"
+
+    "github.com/e2u/e2util/e2gin"
+    "github.com/gin-gonic/gin"
+    "github.com/sirupsen/logrus"
+)
+
+//go:embed web/build/*
+var webFS embed.FS
+
+//go:embed templates/*
+var templateFS embed.FS
+
+func main() {
+    // 设置日志格式
+    logrus.SetFormatter(&logrus.TextFormatter{
+        ForceColors:   true,
+        FullTimestamp: true,
+    })
+
+    opt := &e2gin.Option{
+        // 静态文件：SPA 应用
+        StaticFiles: []*e2gin.StaticFiles{
+            {
+                FS:        webFS,
+                HttpPath:  "/",
+                LocalPath: "./web/build", // 开发模式热重载
+            },
+        },
+
+        // 模板配置
+        Template: &e2gin.Template{
+            FS:        templateFS,
+            LocalPath: "./templates",
+            Option: e2gin.TemplatesOption{
+                TrimTags:   true,
+                MinifyHTML: !gin.IsDebugging(),
+            },
+        },
+
+        // 健康检查配置
+        HealthPathPrefix: "/__app",
+
+        // Pprof 配置（仅开发模式）
+        DisabledPprof: gin.Mode() == gin.ReleaseMode,
+        PprofPathPrefix: "/__app",
+
+        // Gzip 压缩（生产环境启用）
+        DisableGzip: gin.Mode() == gin.DebugMode,
+    }
+
+    eng := e2gin.DefaultEngine(opt)
+
+    // API 路由
+    api := eng.Group("/api/v1")
+    {
+        api.GET("/health", func(c *gin.Context) {
+            c.JSON(200, gin.H{"status": "ok"})
+        })
+    }
+
+    // 启动服务
+    e2gin.StartAndStopHttp(eng, "0.0.0.0", 8080, func() {
+        logrus.Info("Server shutting down...")
+    })
+}
 ```
 
-3. **驗證安裝**
-在代碼中導入 `github.com/e2u/e2util/e2gin`，運行 `go build` 或 `go run`，若無錯誤則安裝成功。
-Import `github.com/e2u/e2util/e2gin` in your code and run `go build` or `go run`. Success indicates proper installation.
+---
+
+## 测试
+
+运行包内所有测试：
+
+```bash
+go test ./e2gin/...
+```
+
+运行特定测试：
+
+```bash
+# SPA 路由测试
+go test ./e2gin/... -run TestSPA
+
+# 组件测试
+go test ./e2gin/component/...
+```
 
 ---
 
-## 功能描述 / Features
+## 安全特性
 
-- **動態模板渲染**：`NewDynamicHTMLRender` 提供模板文件監控與動態重載，支持自定義函數映射和 HTML 壓縮。
-**Dynamic Template Rendering**: `NewDynamicHTMLRender` offers template file monitoring and dynamic reloading, supporting custom function maps and HTML minification.
+- **路径遍历防护**：自动拒绝包含 `..` 的请求路径
+- **空字节注入防护**：拒绝包含空字节的请求
+- **安全路径验证**：静态文件路径使用白名单验证
+- **CSP 安全头**：内置 Content Security Policy 中间件
 
-- **靜態文件服務**：`registerStaticFiles` 和 `settingEtag` 提供靜態文件服務，支持 ETag 緩存和 Gzip 壓縮。
-**Static File Serving**: `registerStaticFiles` and `settingEtag` provide static file serving with ETag caching and Gzip compression.
-
-- **引擎配置**：`DefaultEngine` 配置 `gin` 引擎，支持健康檢查、Pprof、反向代理和靜態文件路由。
-**Engine Configuration**: `DefaultEngine` configures the `gin` engine, supporting health checks, Pprof, reverse proxy, and static file routing.
-
-- **異常恢復**：`customRecovery` 提供自定義異常恢復，生成帶追蹤 ID 的錯誤頁面。
-**Panic Recovery**: `customRecovery` provides custom panic recovery, generating error pages with tracking IDs.
-
-- **模板解析**：`ParseTemplates` 解析模板文件，支持標籤修剪和 HTML 壓縮，提供靈活的配置選項。
-**Template Parsing**: `ParseTemplates` parses template files, supporting tag trimming and HTML minification with flexible configuration options.
-
-- **服務啟停**：`StartAndStopHttp` 提供服務啟動與信號處理，支持優雅關閉。
-**Service Start/Stop**: `StartAndStopHttp` provides server startup and signal handling, supporting graceful shutdown.
+```go
+// 启用安全头
+eng.Use(middlewares.DefaultSecurityHeaders())
+```
 
 ---
+
+## 开发模式 vs 生产模式
+
+| 功能 | 开发模式 (`debug`) | 生产模式 (`release`) |
+|------|-------------------|---------------------|
+| 模板热重载 | 启用 | 禁用 |
+| 静态文件热重载 | 启用 | 禁用 |
+| HTML 压缩 | 禁用 | 启用 |
+| Gzip 压缩 | 禁用 | 启用 |
+| 日志级别 | Debug | Info |
+
+切换模式：
+
+```bash
+# 开发模式
+gin.SetMode(gin.DebugMode)
+
+# 生产模式
+gin.SetMode(gin.ReleaseMode)
+```
+
+---
+
+## 依赖
+
+- [gin-gonic/gin](https://github.com/gin-gonic/gin) - Web 框架
+- [sirupsen/logrus](https://github.com/sirupsen/logrus) - 日志
+- [e2u/e2util](https://github.com/e2u/e2util) - 工具包
+
+---
+
+## License
+
+MIT License - see the [LICENSE](../LICENSE) file for details.

@@ -63,8 +63,3 @@ func RequestLoggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 	}
 }
 
-func SliceLoggerMiddleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		ctx.Next()
-	}
-}

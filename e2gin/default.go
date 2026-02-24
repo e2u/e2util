@@ -120,9 +120,15 @@ func ParseTemplates(templateFs fs.FS, args ...any) (*template.Template, error) {
 	templates, _ := fs.Sub(templateFs, ".")
 
 	opt := TemplatesOption{}
+
+	// Create a new func map instead of modifying the global one
+	// This prevents race conditions when ParseTemplates is called concurrently
+	funcMap := make(template.FuncMap, len(defaultFuncMap))
+	maps.Copy(funcMap, defaultFuncMap)
+
 	for _, arg := range args {
 		if v, ok := arg.(template.FuncMap); ok && len(v) > 0 {
-			maps.Copy(defaultFuncMap, v)
+			maps.Copy(funcMap, v)
 		}
 		if v, ok := arg.(TemplatesOption); ok {
 			opt = v
@@ -130,10 +136,10 @@ func ParseTemplates(templateFs fs.FS, args ...any) (*template.Template, error) {
 	}
 
 	if len(FuncMap) > 0 {
-		maps.Copy(defaultFuncMap, FuncMap)
+		maps.Copy(funcMap, FuncMap)
 	}
 
-	if err := parseTemplates(templates, tmpl, defaultFuncMap, opt); err != nil {
+	if err := parseTemplates(templates, tmpl, funcMap, opt); err != nil {
 		logrus.Errorf("parset templates error=%v", err)
 		return nil, err
 	}
