@@ -43,6 +43,7 @@ type PaginationResult[T any] struct {
 // PaginationOption defines options for pagination
 // PaginationOption 定義分頁選項
 type PaginationOption struct {
+	DisablePagination   bool
 	PrePage             int
 	Page                int
 	Offset              int
@@ -248,8 +249,15 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 	// Execute query
 	// 執行查詢
 	var ls []T
-	if err := dbQuery.Order(orderStr.String()).Limit(opt.PrePage).Offset(offset).Find(&ls).Error; err != nil {
-		return nil, err
+	if opt.DisablePagination {
+		if err := dbQuery.Order(orderStr.String()).Find(&ls).Error; err != nil {
+			return nil, err
+		}
+
+	} else {
+		if err := dbQuery.Order(orderStr.String()).Limit(opt.PrePage).Offset(offset).Find(&ls).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	if !opt.DisableHeadCount {
