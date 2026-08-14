@@ -144,3 +144,7 @@ func MustToSecureJSONString(v any, prefix ...string) string {
 	}
 	return j
 }
+
+func Println(v any, indent ...bool) {
+	fmt.Println(MustToJSONString(v, indent...))
+}
