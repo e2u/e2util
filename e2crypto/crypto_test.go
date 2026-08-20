@@ -169,3 +169,9 @@ func TestRandomElement(t *testing.T) {
 		})
 	}
 }
+
+func Test_aa(t *testing.T) {
+	v := uint64ToBytes(12345)
+	t.Log(v)
+
+}

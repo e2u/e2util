@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -54,8 +55,8 @@ func (s *S3) ParseS3Path(s3path string) (string, string, error) {
 // ListBucketFiles 列出指定桶下的符合条件的文件
 func (s *S3) ListBucketFiles(bucketName, prefix string, fn func(objs []*s3.Object, lastPage bool)) error {
 	return s.instance().ListObjectsPages(&s3.ListObjectsInput{
-		Bucket: aws.String(bucketName),
-		Prefix: aws.String(prefix),
+		Bucket: new(bucketName),
+		Prefix: new(prefix),
 	}, func(output *s3.ListObjectsOutput, lastPage bool) bool {
 		fn(output.Contents, lastPage)
 		return lastPage
@@ -68,7 +69,7 @@ func (s *S3) PutContentObject(bucketName string, key string, content []byte, opt
 	if len(opts) > 0 {
 		si = opts[0]
 	}
-	si.Bucket = aws.String(bucketName)
+	si.Bucket = new(bucketName)
 	si.Key = s.fixKey(key)
 	si.Body = bytes.NewReader(content)
 
@@ -79,7 +80,7 @@ func (s *S3) PutContentObject(bucketName string, key string, content []byte, opt
 // PreSignedGetObjectURL 生成获取对象地址的预签名地址
 func (s *S3) PreSignedGetObjectURL(bucketName, key string, expires time.Duration) (string, error) {
 	req, _ := s.instance().GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: new(bucketName),
 		Key:    s.fixKey(key),
 	})
 	return req.Presign(expires)
@@ -91,7 +92,7 @@ func (s *S3) PreSignedPutObjectURL(bucketName, key string, expires time.Duration
 	if len(opts) > 0 {
 		pi = opts[0]
 	}
-	pi.Bucket = aws.String(bucketName)
+	pi.Bucket = new(bucketName)
 	pi.Key = s.fixKey(key)
 	req, _ := s.instance().PutObjectRequest(pi)
 	return req.Presign(expires)
@@ -103,7 +104,7 @@ func (s *S3) GetObject(bucketName, key string, opts ...*s3.GetObjectInput) ([]by
 	if len(opts) > 0 {
 		pi = opts[0]
 	}
-	pi.Bucket = aws.String(bucketName)
+	pi.Bucket = new(bucketName)
 	pi.Key = s.fixKey(key)
 
 	out, err := s.instance().GetObject(pi)
@@ -117,13 +118,13 @@ func (s *S3) GetObject(bucketName, key string, opts ...*s3.GetObjectInput) ([]by
 
 // UploadWithFilePath 上传本地文件到 s3 上,无法设置更多属性，如需定制，请用 Upload 方法
 func (s *S3) UploadWithFilePath(localFile, bucket, key string) (string, error) {
-	file, err := os.Open(localFile)
+	file, err := os.Open(filepath.Clean(localFile))
 	if err != nil {
 		return "", err
 	}
 	svc := s3manager.NewUploader(s.sess)
 	out, err := svc.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucket),
+		Bucket: new(bucket),
 		Key:    s.fixKey(key),
 		Body:   file,
 	})
@@ -137,7 +138,7 @@ func (s *S3) UploadWithFilePath(localFile, bucket, key string) (string, error) {
 
 // Upload 上传内容到 s3
 func (s *S3) Upload(bucket, key string, input *s3manager.UploadInput) (string, error) {
-	input.Bucket = aws.String(bucket)
+	input.Bucket = new(bucket)
 	input.Key = s.fixKey(key)
 	svc := s3manager.NewUploader(s.sess)
 	out, err := svc.Upload(input)
@@ -150,20 +151,17 @@ func (s *S3) Upload(bucket, key string, input *s3manager.UploadInput) (string, e
 }
 
 func (s *S3) fixKey(key string) *string {
-	for {
-		if !strings.HasPrefix(key, "/") || len(key) == 0 {
-			break
-		}
+	for strings.HasPrefix(key, "/") && len(key) != 0 {
 		key = key[1:]
 	}
-	return aws.String(key)
+	return new(key)
 }
 
 // DeleteObject 刪除一個對象
 func (s *S3) DeleteObject(bucket, key string) error {
 	_, err := s.instance().DeleteObject(&s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Bucket: new(bucket),
+		Key:    new(key),
 	})
 	return err
 }
@@ -180,9 +178,9 @@ func (s *S3) CopyObject(srcObject, targetObject string) error {
 		srcObject = strings.Replace(srcObject, "s3://", "", 1)
 	}
 	_, err = s.instance().CopyObject(&s3.CopyObjectInput{
-		Bucket:     aws.String(bucket),
-		Key:        aws.String(key),
-		CopySource: aws.String(url.PathEscape(srcObject)),
+		Bucket:     new(bucket),
+		Key:        new(key),
+		CopySource: new(url.PathEscape(srcObject)),
 	})
 	return err
 }

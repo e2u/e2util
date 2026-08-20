@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,7 +26,7 @@ func resetPassword(c *gin.Context) {
 		return
 	}
 
-	token, err := generateRecoverToken(uuid.NewString(), user.Id, durationRecover, cfg)
+	token, err := generateRecoverToken(uuid.NewV4().String(), user.Id, durationRecover, cfg)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 	}
@@ -90,7 +90,7 @@ func resetPasswordConfirm(c *gin.Context) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		cfg.logger.Warn("Failed to hash password: %v", err)
+		cfg.logger.Warnf("Failed to hash password: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}

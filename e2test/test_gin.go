@@ -2,6 +2,7 @@ package e2test
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -31,6 +32,8 @@ func Get(r *gin.Engine, url string, header http.Header, params url.Values) *http
 func Any(r *gin.Engine, method string, url string, header http.Header, body any) *httptest.ResponseRecorder {
 	logrus.Infof("e2test [%s] %s", method, url)
 
+	ctx := context.TODO()
+
 	var rd io.Reader
 	if body != nil {
 		switch t := body.(type) {
@@ -46,7 +49,7 @@ func Any(r *gin.Engine, method string, url string, header http.Header, body any)
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(method, url, rd)
+	req, _ := http.NewRequestWithContext(ctx, method, url, rd)
 	if header != nil {
 		req.Header = header
 	}

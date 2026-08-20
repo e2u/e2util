@@ -2,6 +2,7 @@ package e2error
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 )
@@ -28,16 +29,16 @@ func CheckErrors(stop bool, errs ...error) error {
 }
 
 func SilentCheckFunc(fs ...func() error) {
-	for i := len(fs) - 1; i >= 0; i-- {
-		if err := fs[i](); err != nil {
+	for _, f := range slices.Backward(fs) {
+		if err := f(); err != nil {
 			logrus.Errorf("Received error: %v", err)
 		}
 	}
 }
 
 func SilentCheckErrs(fs ...error) {
-	for i := len(fs) - 1; i >= 0; i-- {
-		if err := fs[i]; err != nil {
+	for _, err := range slices.Backward(fs) {
+		if err != nil {
 			logrus.Errorf("Received error: %v", err)
 		}
 	}

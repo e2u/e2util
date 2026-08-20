@@ -37,7 +37,7 @@ func retrieveUser(cfg *routerConfig, email, username string) (*User, error) {
 		user, err = getUserByName(username)
 	}
 	if user == nil || err != nil {
-		cfg.logger.Error("Failed to retrieve user, email=%v, username=%v, error=%v", email, username, err)
+		cfg.logger.Errorf("Failed to retrieve user, email=%v, username=%v, error=%v", email, username, err)
 		return nil, err
 	}
 	return user, nil

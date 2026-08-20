@@ -59,6 +59,9 @@ func verifyEncryptSubjectAndClaims[T any](tokenString string, claims jwt.Claims,
 		return zero, nil, err
 	}
 	decSub, err := e2crypto.GCMDecryptData(regClaims.Subject, aesKey)
+	if err != nil {
+		return zero, nil, err
+	}
 
 	var result T
 	if err = e2json.MustFromJSONByte(decSub, &result); err != nil {

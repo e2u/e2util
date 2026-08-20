@@ -3,7 +3,6 @@ package e2dynamodb
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -30,7 +29,7 @@ type DynamoDB struct {
 // New NewDynamoDB
 func New(tableName string, sess *session.Session) *DynamoDB {
 	return &DynamoDB{
-		tableName: aws.String(tableName),
+		tableName: new(tableName),
 		dy:        dynamodb.New(sess),
 	}
 }
@@ -46,7 +45,7 @@ func (d *DynamoDB) BuildKeyValue(k *Key) *dynamodb.AttributeValue {
 	case KeyTypeBinary:
 		return &dynamodb.AttributeValue{B: k.Value.([]byte)}
 	case KeyTypeBool:
-		return &dynamodb.AttributeValue{BOOL: aws.Bool(k.Value.(bool))}
+		return &dynamodb.AttributeValue{BOOL: new(k.Value.(bool))}
 	case KeyTypeBinaryArray:
 		return &dynamodb.AttributeValue{BS: k.Value.([][]byte)}
 	case KeyTypeList:
@@ -54,17 +53,17 @@ func (d *DynamoDB) BuildKeyValue(k *Key) *dynamodb.AttributeValue {
 	case KeyTypeMap:
 		return &dynamodb.AttributeValue{M: k.Value.(map[string]*dynamodb.AttributeValue)}
 	case KeyTypeNumber:
-		return &dynamodb.AttributeValue{N: aws.String(k.Value.(string))}
+		return &dynamodb.AttributeValue{N: new(k.Value.(string))}
 	case KeyTypeNumberArray:
 		return &dynamodb.AttributeValue{NS: k.Value.([]*string)}
 	case KeyTypeNull:
-		return &dynamodb.AttributeValue{NULL: aws.Bool(k.Value.(bool))}
+		return &dynamodb.AttributeValue{NULL: new(k.Value.(bool))}
 	case KeyTypeString:
-		return &dynamodb.AttributeValue{S: aws.String(k.Value.(string))}
+		return &dynamodb.AttributeValue{S: new(k.Value.(string))}
 	case KeyTypeStringArray:
 		return &dynamodb.AttributeValue{SS: k.Value.([]*string)}
 	default:
-		return &dynamodb.AttributeValue{S: aws.String(k.Value.(string))}
+		return &dynamodb.AttributeValue{S: new(k.Value.(string))}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
@@ -33,7 +34,8 @@ func RandomString(n int) (string, error) {
 		return "", err
 	}
 	for i := range b {
-		b[i] = encoder[b[i]%byte(len(encoder))]
+		// b[i] = encoder[b[i]%byte(len(encoder))]
+		b[i] = encoder[int(b[i])%len(encoder)]
 	}
 	return string(b), nil
 }
@@ -204,11 +206,11 @@ func (c TOTPConfig) Validate() error {
 // timeStep is typically 30 seconds (standard)
 // skew allows for time drift (e.g., 1 = ±30 seconds)
 // Deprecated: Use VerifyTOTPWithConfig for more flexibility
-func VerifyTOTP(secret string, code string, t time.Time, timeStep int, skew int) bool {
-	config := DefaultTOTPConfig(secret)
-	config.Period = timeStep
-	return VerifyTOTPWithConfig(config, code, t, skew)
-}
+// func VerifyTOTP(secret string, code string, t time.Time, timeStep int, skew int) bool {
+//	config := DefaultTOTPConfig(secret)
+//	config.Period = timeStep
+//	return VerifyTOTPWithConfig(config, code, t, skew)
+//}
 
 // VerifyTOTPWithConfig verifies a TOTP code using the provided configuration
 func VerifyTOTPWithConfig(config TOTPConfig, code string, t time.Time, skew int) bool {
@@ -220,7 +222,10 @@ func VerifyTOTPWithConfig(config TOTPConfig, code string, t time.Time, skew int)
 	}
 	// Try current and adjacent time steps
 	for i := -skew; i <= skew; i++ {
-		expected := generateTOTPWithConfig(config, t, i)
+		expected, err := generateTOTPWithConfig(config, t, i)
+		if err != nil {
+			return false
+		}
 		if subtle.ConstantTimeCompare([]byte(expected), []byte(code)) == 1 {
 			return true
 		}
@@ -230,22 +235,60 @@ func VerifyTOTPWithConfig(config TOTPConfig, code string, t time.Time, skew int)
 
 // generateTOTP generates a TOTP code for the given time and offset
 // Deprecated: Use generateTOTPWithConfig for more flexibility
-func generateTOTP(secret string, t time.Time, timeStep, stepOffset int) string {
-	config := DefaultTOTPConfig(secret)
-	config.Period = timeStep
-	return generateTOTPWithConfig(config, t, stepOffset)
+// func generateTOTP(secret string, t time.Time, timeStep, stepOffset int) string {
+//	config := DefaultTOTPConfig(secret)
+//	config.Period = timeStep
+//	return generateTOTPWithConfig(config, t, stepOffset)
+//}
+
+func calculateCounter(t time.Time, config TOTPConfig, stepOffset int64) (uint64, error) {
+	// 1. 先進行基礎有效性檢查
+	if config.Period <= 0 {
+		return 0, errors.New("TOTP period must be positive")
+	}
+
+	// 2. 喺 int64 領域內完成所有核心運算
+	// 咁樣可以避免中間過程出現 uint64 溢出或者不正確嘅轉型
+	totalInt := (t.Unix() / int64(config.Period)) + stepOffset
+
+	// 3. 最後一步：驗證結果是否符合 uint64 嘅範圍要求
+	// 呢個檢查係針對最終結果，而唔係針對中間變量
+	if totalInt < 0 {
+		return 0, errors.New("calculated counter is negative")
+	}
+
+	// 4. 既然已經驗證咗 totalInt >= 0，呢度嘅強制轉換就係絕對安全嘅
+	// 使用 // nolint:gosec 嚟告訴後續嘅開發者/工具：我已經考慮過安全性
+
+	return uint64(totalInt), nil
 }
 
 // generateTOTPWithConfig generates a TOTP code using the provided configuration
-func generateTOTPWithConfig(config TOTPConfig, t time.Time, stepOffset int) string {
+func generateTOTPWithConfig(config TOTPConfig, t time.Time, stepOffset int) (string, error) {
 	// Decode base32 secret
 	key := base32Decode(config.Secret)
 	if key == nil {
-		return ""
+		return "", errors.New("TOTP secret cannot be empty")
 	}
 
 	// Calculate counter
-	counter := uint64(t.Unix()/int64(config.Period)) + uint64(stepOffset)
+	// counter := uint64(t.Unix()/int64(config.Period)) + uint64(stepOffset)
+
+	// if config.Period <= 0 {
+	//	return "", errors.New("TOTP period must be positive")
+	//}
+	// divisionResult := t.Unix() / int64(config.Period)
+	// if divisionResult < 0 {
+	//	return "", errors.New("TOTP period must be positive")
+	//}
+	//
+	//// noline:gosec // G115
+	// counter := uint64(divisionResult) + uint64(stepOffset)
+
+	counter, err := calculateCounter(t, config, int64(stepOffset))
+	if err != nil {
+		return "", err
+	}
 
 	// Create HMAC based on algorithm
 	var mac hash.Hash
@@ -258,18 +301,18 @@ func generateTOTPWithConfig(config TOTPConfig, t time.Time, stepOffset int) stri
 		mac = hmac.New(sha1.New, key)
 	}
 	mac.Write(uint64ToBytes(counter))
-	hash := mac.Sum(nil)
+	sum := mac.Sum(nil)
 
 	// Dynamic truncation
-	offset := hash[len(hash)-1] & 0x0F
-	code := ((int(hash[offset])&0x7F)<<24 |
-		(int(hash[offset+1])&0xFF)<<16 |
-		(int(hash[offset+2])&0xFF)<<8 |
-		(int(hash[offset+3]) & 0xFF)) % 1000000
+	offset := sum[len(sum)-1] & 0x0F
+	code := ((int(sum[offset])&0x7F)<<24 |
+		(int(sum[offset+1])&0xFF)<<16 |
+		(int(sum[offset+2])&0xFF)<<8 |
+		(int(sum[offset+3]) & 0xFF)) % 1000000
 
 	// Format with correct number of digits
 	format := fmt.Sprintf("%%0%dd", config.Digits)
-	return fmt.Sprintf(format, code)
+	return fmt.Sprintf(format, code), nil
 }
 
 // base32Decode decodes a base32 string (case insensitive)
@@ -309,21 +352,14 @@ func base32Decode(s string) []byte {
 
 // GenerateTOTP generates a TOTP code for the given time
 // This is exported for testing purposes
-func GenerateTOTP(secret string, t time.Time, timeStep int) string {
+func GenerateTOTP(secret string, t time.Time, timeStep int) (string, error) {
 	config := DefaultTOTPConfig(secret)
 	config.Period = timeStep
 	return generateTOTPWithConfig(config, t, 0)
 }
 
 func uint64ToBytes(v uint64) []byte {
-	return []byte{
-		byte(v >> 56),
-		byte(v >> 48),
-		byte(v >> 40),
-		byte(v >> 32),
-		byte(v >> 24),
-		byte(v >> 16),
-		byte(v >> 8),
-		byte(v),
-	}
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, v)
+	return b
 }

@@ -133,7 +133,9 @@ func parsePaginationOptions(c *gin.Context, opts ...*PaginationOption) (*Paginat
 
 // calculatePagination computes pagination metadata
 // calculatePagination 計算分頁元數據
-func calculatePagination(opt *PaginationOption, totalCount int64) (offset int, pages int) {
+func calculatePagination(opt *PaginationOption, totalCount int64) (int, int) {
+	offset := 0
+	pages := 0
 	if opt.Page <= 1 {
 		opt.Page = 1
 		offset = 0
@@ -253,7 +255,6 @@ func PaginationList[T any](c *gin.Context, model T, dbQuery *gorm.DB, opts ...*P
 		if err := dbQuery.Order(orderStr.String()).Find(&ls).Error; err != nil {
 			return nil, err
 		}
-
 	} else {
 		if err := dbQuery.Order(orderStr.String()).Limit(opt.PrePage).Offset(offset).Find(&ls).Error; err != nil {
 			return nil, err

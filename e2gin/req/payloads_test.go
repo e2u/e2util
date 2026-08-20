@@ -64,29 +64,29 @@ func Test_ParsePayload(t *testing.T) {
 			lookup[f.Field+"|"+f.Operator] = f
 		}
 
-		cases := []struct{
-			key string
-			field string
-			op string
+		cases := []struct {
+			key    string
+			field  string
+			op     string
 			symbol string
 		}{
-			{"stock@lt","stock","@lt","<"},
-			{"stock@gt","stock","@gt",">"},
-			{"sales","sales","@eq","="},
-			{"name@inc_any","name","@inc_any","IN"},
-			{"price@eq","price","@eq","="},
-			{"ff_aa@neq","ff_aa","@neq","!="},
-			{"cc@eq_any","cc","@eq_any","IN"},
-			{"ddd@q","ddd","@q","IN"},
-			{"eee@lt","eee","@lt","<"},
-			{"fff@lte","fff","@lte","<= "},
-			{"ggg@gt","ggg","@gt",">"},
-			{"hhh@gte","hhh","@gte",">="},
-			{"mmm@like","mmm","@like","ILIKE"},
-			{"nnn@nlike","nnn","@nlike","NOT ILIKE"},
-			{"is1@is_null","is1","@is_null","IS NULL"},
-			{"is2@is_not_null","is2","@is_not_null","IS NOT NULL"},
-			{"empty@is_empty","empty","@is_empty","IS EMPTY"},
+			{"stock@lt", "stock", "@lt", "<"},
+			{"stock@gt", "stock", "@gt", ">"},
+			{"sales", "sales", "@eq", "="},
+			{"name@inc_any", "name", "@inc_any", "IN"},
+			{"price@eq", "price", "@eq", "="},
+			{"ff_aa@neq", "ff_aa", "@neq", "!="},
+			{"cc@eq_any", "cc", "@eq_any", "IN"},
+			{"ddd@q", "ddd", "@q", "IN"},
+			{"eee@lt", "eee", "@lt", "<"},
+			{"fff@lte", "fff", "@lte", "<= "},
+			{"ggg@gt", "ggg", "@gt", ">"},
+			{"hhh@gte", "hhh", "@gte", ">="},
+			{"mmm@like", "mmm", "@like", "ILIKE"},
+			{"nnn@nlike", "nnn", "@nlike", "NOT ILIKE"},
+			{"is1@is_null", "is1", "@is_null", "IS NULL"},
+			{"is2@is_not_null", "is2", "@is_not_null", "IS NOT NULL"},
+			{"empty@is_empty", "empty", "@is_empty", "IS EMPTY"},
 		}
 		for _, c := range cases {
 			f, ok := lookup[c.field+"|"+c.op]
@@ -168,7 +168,7 @@ func Test_ParsePayload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(pp, PaginationPayload{Page:1, PerPage:10}) {
+		if !reflect.DeepEqual(pp, PaginationPayload{Page: 1, PerPage: 10}) {
 			t.Fatalf("expected defaults, got: %+v", pp)
 		}
 		pp2, err := ParsePaginationPayload(`{"page":3}`)

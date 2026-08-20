@@ -1,6 +1,7 @@
 package e2pprof
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,14 +11,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Init() {
+func Init(ctx context.Context) {
 	var once sync.Once
 	go func() {
 		once.Do(func() {
 			logrus.Infof("-----------------------------------")
 			logrus.Infof("pprof init")
+			lc := net.ListenConfig{}
 
-			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 			if err != nil {
 				logrus.Errorf("tcp listen error: %v", err)
 				return

@@ -87,7 +87,7 @@ func (s *MockStorage) GetResetPasswordToken(tokenId string) (*PasswordResetToken
 		UserId:    mockUser.Id,
 		User:      mockUser,
 		Token:     "reset-password-token",
-		ExpiresAt: time.Time(time.Now().Add(durationRecover)),
+		ExpiresAt: time.Now().Add(durationRecover),
 	}, nil
 }
 

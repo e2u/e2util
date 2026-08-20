@@ -48,12 +48,12 @@ func (f *mockFile) Close() error { return nil }
 
 // Helper to create test StaticFiles
 type testFileSystem struct {
-	indexContent   string
-	loginContent   string
-	aboutContent   string
-	hasIndex       bool
-	hasLogin       bool
-	hasAbout       bool
+	indexContent string
+	loginContent string
+	aboutContent string
+	hasIndex     bool
+	hasLogin     bool
+	hasAbout     bool
 }
 
 func createTestStaticFiles(tfs testFileSystem) []*StaticFiles {
@@ -453,7 +453,7 @@ func TestHasHTMLPage(t *testing.T) {
 // TestIsSafePath tests the isSafePath function
 func TestIsSafePath(t *testing.T) {
 	tests := []struct {
-		path    string
+		path     string
 		wantSafe bool
 	}{
 		{"login.html", true},

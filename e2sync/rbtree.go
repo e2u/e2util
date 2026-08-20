@@ -38,12 +38,13 @@ func NewRBTreeMap[K any, V any](comparer Comparer[K]) *RBTreeMap[K, V] {
 }
 
 func (t *RBTreeMap[K, V]) leftRotate(x *Node[K, V]) {
-	y := x.Right
+	var y = x.Right
 	x.Right = y.Left
 	if y.Left != t.Nil {
 		y.Left.Parent = x
 	}
 	y.Parent = x.Parent
+	//nolint:gocritic
 	if x.Parent == t.Nil {
 		t.Root = y
 	} else if x == x.Parent.Left {
@@ -51,6 +52,7 @@ func (t *RBTreeMap[K, V]) leftRotate(x *Node[K, V]) {
 	} else {
 		x.Parent.Right = y
 	}
+
 	y.Left = x
 	x.Parent = y
 }
@@ -62,6 +64,7 @@ func (t *RBTreeMap[K, V]) rightRotate(x *Node[K, V]) {
 		y.Right.Parent = x
 	}
 	y.Parent = x.Parent
+	//nolint:gocritic
 	if x.Parent == t.Nil {
 		t.Root = y
 	} else if x == x.Parent.Right {
@@ -81,6 +84,7 @@ func (t *RBTreeMap[K, V]) Store(key K, value V) {
 	for current != t.Nil {
 		parent = current
 		comp := t.comparer.Compare(key, current.Key)
+		//nolint:gocritic
 		if comp < 0 {
 			current = current.Left
 		} else if comp > 0 {
@@ -92,6 +96,7 @@ func (t *RBTreeMap[K, V]) Store(key K, value V) {
 	}
 
 	node.Parent = parent
+	//nolint:gocritic
 	if parent == t.Nil {
 		t.Root = node
 	} else if t.comparer.Compare(key, parent.Key) < 0 {
@@ -162,6 +167,7 @@ func (t *RBTreeMap[K, V]) Load(key K) (V, bool) {
 	var zero V
 	for current != t.Nil {
 		comp := t.comparer.Compare(key, current.Key)
+		//nolint:gocritic
 		if comp < 0 {
 			current = current.Left
 		} else if comp > 0 {

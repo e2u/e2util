@@ -62,4 +62,3 @@ func RequestLoggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 		}).Info("request details")
 	}
 }
-

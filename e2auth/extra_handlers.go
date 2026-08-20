@@ -3,10 +3,10 @@ package e2auth
 import (
 	"net/http"
 	"time"
+	"uuid"
 
 	"github.com/e2u/e2util/e2crypto"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Unlock a user account (placeholder implementation)
@@ -22,7 +22,7 @@ func oauthProvider(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidInput, "unknown provider"))
 		return
 	}
-	state := uuid.NewString()
+	state := uuid.NewV4().String()
 	url := provider.GetAuthURL(state)
 	c.JSON(http.StatusOK, successResp(gin.H{"auth_url": url, "state": state}))
 }
@@ -114,7 +114,7 @@ func mfaVerify(c *gin.Context) {
 		return
 	}
 	// Verify TOTP token with 30-second time step and 1 step skew (±30 seconds)
-	if !e2crypto.VerifyTOTP(user.OTPSecret, input.Token, time.Now(), 30, 1) {
+	if !e2crypto.VerifyTOTPWithConfig(e2crypto.DefaultTOTPConfig(user.OTPSecret), input.Token, time.Now(), 30) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeInvalidCredentials, "Invalid MFA token"))
 		return
 	}

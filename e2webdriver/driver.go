@@ -128,7 +128,7 @@ func downloadAndUnzip(ctx context.Context, url string, localDir string) (string,
 		return "", err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(localDir), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(localDir), 0750); err != nil {
 		return "", err
 	}
 
@@ -148,7 +148,7 @@ func downloadAndUnzip(ctx context.Context, url string, localDir string) (string,
 	}
 
 	zipFile := filepath.Join(localDir, fileName)
-	out, err := os.OpenFile(zipFile, os.O_CREATE|os.O_SYNC|os.O_RDWR|os.O_TRUNC, 0644)
+	out, err := os.OpenFile(filepath.Clean(zipFile), os.O_CREATE|os.O_SYNC|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		logrus.Errorf("open file error=%v", err)
 		return "", err
@@ -177,14 +177,14 @@ func downloadAndUnzip(ctx context.Context, url string, localDir string) (string,
 		fPath := filepath.Join(extractDir, f.Name)
 
 		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(extractDir, os.ModePerm); err != nil {
+			if err := os.MkdirAll(extractDir, 0750); err != nil {
 				return "", err
 			}
 		} else {
-			if err := os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
+			if err := os.MkdirAll(filepath.Dir(fPath), 0750); err != nil {
 				return "", err
 			}
-			outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			outFile, err := os.OpenFile(filepath.Clean(fPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 			if err != nil {
 				return "", err
 			}

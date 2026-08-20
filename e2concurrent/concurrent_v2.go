@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
@@ -59,7 +59,7 @@ func NewTask[In, Out any](fn WorkFunc[In, Out], value In, opts ...TaskOption[In,
 		Ctx:   context.Background(),
 		Fn:    fn,
 		Arg:   Arg[In]{Value: value},
-		Refer: uuid.NewString(),
+		Refer: uuid.NewV4().String(),
 	}
 	for _, opt := range opts {
 		opt(&t)
@@ -114,13 +114,11 @@ func taskWorker[In, Out any](wg *sync.WaitGroup, uuid string, task Task[In, Out]
 	select {
 	case <-ctx.Done():
 		r := Result[Out]{
-			Err: ctx.Err(),
-			Trace: Trace{
-				Id:       uuid,
-				Refer:    task.Refer,
-				StartAt:  startTime,
-				Duration: time.Since(startTime),
-			},
+			Err:      ctx.Err(),
+			Id:       uuid,
+			Refer:    task.Refer,
+			StartAt:  startTime,
+			Duration: time.Since(startTime),
 		}
 		if task.RetainInput {
 			r.Arg = Arg[any]{Value: task.Arg.Value}
@@ -179,12 +177,10 @@ func Exec[In, Out any](ctx context.Context, maxConcurrency int, tasks <-chan Tas
 				if err := sem.Acquire(ctx, 1); err != nil {
 					logrus.WithField("func", "e2concurrent.Exec").Errorf("Failed to acquire semaphore: %v", err)
 					r := Result[Out]{
-						Err: err,
-						Trace: Trace{
-							Id:      uuid.NewString(),
-							Refer:   task.Refer,
-							StartAt: time.Now(),
-						},
+						Err:     err,
+						Id:      uuid.NewV4().String(),
+						Refer:   task.Refer,
+						StartAt: time.Now(),
 					}
 					if task.RetainInput {
 						r.Arg = Arg[any]{Value: task.Arg.Value}
@@ -195,7 +191,7 @@ func Exec[In, Out any](ctx context.Context, maxConcurrency int, tasks <-chan Tas
 				wg.Add(1)
 				go func(t Task[In, Out]) {
 					defer sem.Release(1)
-					taskWorker(&wg, uuid.NewString(), t, result)
+					taskWorker(&wg, uuid.NewV4().String(), t, result)
 				}(task)
 			}
 		}

@@ -140,7 +140,7 @@ func registerStaticFiles(r *gin.Engine, staticFs fs.FS, httpPath string, localPa
 				}
 
 				// Read and serve file
-				content, err := os.ReadFile(fullPath)
+				content, err := os.ReadFile(filepath.Clean(fullPath))
 				if err != nil {
 					logrus.Errorf("Failed to read file %s: %v", fullPath, err)
 					c.AbortWithStatus(http.StatusInternalServerError)

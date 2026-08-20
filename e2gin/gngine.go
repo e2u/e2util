@@ -2,6 +2,7 @@ package e2gin
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"fmt"
 	"html/template"
@@ -21,6 +22,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"uuid"
 
 	"github.com/e2u/e2util/e2exec"
 	h "github.com/e2u/e2util/e2html"
@@ -30,7 +32,6 @@ import (
 	"github.com/gin-gonic/contrib/ginrus"
 	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -139,7 +140,7 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	}
 
 	if !opt.DisabledPprof {
-		startPprof(eng, opt)
+		startPprof(context.Background(), eng, opt)
 	}
 
 	eng.RemoveExtraSlash = true
@@ -206,7 +207,7 @@ func loadHTMLPage(sfs []*StaticFiles, name string) []byte {
 		for _, sf := range sfs {
 			// 优先从本地路径加载（开发模式）
 			if gin.Mode() != gin.ReleaseMode && e2os.FileExists(sf.LocalPath) {
-				if b, err := os.ReadFile(filepath.Join(sf.LocalPath, fileName)); err == nil {
+				if b, err := os.ReadFile(filepath.Clean(filepath.Join(sf.LocalPath, fileName))); err == nil {
 					return b
 				}
 			}
@@ -243,14 +244,16 @@ func hasHTMLPage(sfs []*StaticFiles, name string) bool {
 	return false
 }
 
-func startPprof(eng *gin.Engine, opt *Option) {
+func startPprof(ctx context.Context, eng *gin.Engine, opt *Option) {
 	if opt.PprofPathPrefix == "" {
 		opt.PprofPathPrefix = cleanHttpPath("/__app")
 	}
 	var once sync.Once
+
 	go func() {
 		once.Do(func() {
-			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			lc := net.ListenConfig{}
+			listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 			if err != nil {
 				logrus.Errorf("make tcp listen error: %v", err)
 				return
@@ -410,7 +413,11 @@ func noRouteProxy(opt *Option) gin.HandlerFunc {
 }
 
 func hostPortActive(host string) bool {
-	if _, err := net.DialTimeout("tcp", host, 100*time.Millisecond); err == nil {
+	var d net.Dialer
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	if _, err := d.DialContext(ctx, "tcp", host); err == nil {
 		return true
 	}
 	return false
@@ -434,7 +441,7 @@ func StartAndStopHttp(eng *gin.Engine, address string, port int, stop func()) {
 func customRecovery(c *gin.Context, msg any) {
 	c.Set(keyDisableGzip, true)
 
-	trackId := uuid.NewString()
+	trackId := uuid.New().String()
 
 	dumpReq := func() string {
 		var rs []string
@@ -472,7 +479,7 @@ func customRecovery(c *gin.Context, msg any) {
 			h.T("li", time.Now().UTC().Format(time.RFC1123)),
 		),
 		h.T("pre", fmt.Sprintf("Error Message: %s", msgStr())),
-		//h.T("pre", dumpReq),
+		// h.T("pre", dumpReq),
 	)
 
 	html := h.T("html", h.A("lang", "en"),

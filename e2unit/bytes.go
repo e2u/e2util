@@ -111,7 +111,7 @@ func ParseBytes(s string) (uint64, error) {
 	lastDigit := 0
 	hasComma := false
 	for _, r := range s {
-		if !(unicode.IsDigit(r) || r == '.' || r == ',') {
+		if !unicode.IsDigit(r) && r != '.' && r != ',' {
 			break
 		}
 		if r == ',' {

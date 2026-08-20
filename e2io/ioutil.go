@@ -3,6 +3,7 @@ package e2io
 import (
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 )
@@ -40,7 +41,7 @@ func MustReadAllAsStringAndClose(r io.ReadCloser) string {
 }
 
 func MustReadFile(filename string) []byte {
-	b, err := os.ReadFile(filename)
+	b, err := os.ReadFile(filepath.Clean(filename))
 	if err != nil {
 		logrus.Errorf("read file error=%v", err)
 		return nil

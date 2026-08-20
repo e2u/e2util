@@ -35,7 +35,7 @@ func (s *SQS) GetURL(queueName string) (*string, error) {
 	if v, ok := s.urlCache.Load(queueName); ok {
 		return v.(*string), nil
 	}
-	out, err := s.instance().GetQueueUrl(&sqs.GetQueueUrlInput{QueueName: aws.String(queueName)})
+	out, err := s.instance().GetQueueUrl(&sqs.GetQueueUrlInput{QueueName: new(queueName)})
 	if err == nil {
 		s.urlCache.Store(queueName, out.QueueUrl)
 	}
@@ -51,7 +51,7 @@ func (s *SQS) MustGetURL(queueName string) *string {
 func (s *SQS) SendMessage(queueName string, message string) error {
 	_, err := s.instance().SendMessage(&sqs.SendMessageInput{
 		QueueUrl:    s.MustGetURL(queueName),
-		MessageBody: aws.String(message),
+		MessageBody: new(message),
 	})
 	return err
 }
@@ -63,8 +63,8 @@ func (s *SQS) BatchSendMessages(queueName string, messages []string) (int, error
 		Entries: func() []*sqs.SendMessageBatchRequestEntry {
 			var re []*sqs.SendMessageBatchRequestEntry
 			for _, message := range messages {
-				id := aws.String(e2exec.Must(e2crypto.RandomString(16)))
-				re = append(re, &sqs.SendMessageBatchRequestEntry{MessageBody: aws.String(message), Id: id})
+				id := new(e2exec.Must(e2crypto.RandomString(16)))
+				re = append(re, &sqs.SendMessageBatchRequestEntry{MessageBody: new(message), Id: id})
 			}
 			return re
 		}(),
@@ -76,7 +76,7 @@ func (s *SQS) BatchSendMessages(queueName string, messages []string) (int, error
 func (s *SQS) ReceiveMessage(queueName string, maxNumber int64) ([]*sqs.Message, error) {
 	out, err := s.instance().ReceiveMessage(&sqs.ReceiveMessageInput{
 		QueueUrl:            s.MustGetURL(queueName),
-		MaxNumberOfMessages: aws.Int64(maxNumber),
+		MaxNumberOfMessages: new(maxNumber),
 	})
 	return out.Messages, err
 }
@@ -118,7 +118,7 @@ func (s *SQS) GetQueueAttributes(queueName string) (map[string]*string, error) {
 // GetQueueAttributesWithURL 根据队列URL获取队列属性
 func (s *SQS) GetQueueAttributesWithURL(queueURL string) (map[string]*string, error) {
 	out, err := s.instance().GetQueueAttributes(&sqs.GetQueueAttributesInput{
-		QueueUrl:       aws.String(queueURL),
+		QueueUrl:       new(queueURL),
 		AttributeNames: []*string{aws.String(sqs.QueueAttributeNameAll)},
 	})
 

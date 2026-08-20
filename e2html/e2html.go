@@ -62,7 +62,6 @@ func (r TAG) String() string {
 	return string(r)
 }
 
-
 // TS converts a single TAG or a slice of TAG to a single TAG.
 // Returns an empty TAG if the input type is unexpected.
 func TS[T TAG | []TAG](t T) TAG {

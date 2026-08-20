@@ -10,7 +10,7 @@ func TestMustStringValue(t *testing.T) {
 		expected string
 	}{
 		{nil, ""},
-		{P("hello"), "hello"},
+		{new("hello"), "hello"},
 	}
 
 	for _, tt := range tests {
@@ -187,7 +187,7 @@ func TestExpectOrDefault(t *testing.T) {
 
 func TestP(t *testing.T) {
 	value := 42
-	ptr := P(value)
+	ptr := new(value)
 	if *ptr != value {
 		t.Errorf("P(%v) = %v, want %v", value, *ptr, value)
 	}

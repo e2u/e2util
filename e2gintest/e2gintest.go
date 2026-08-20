@@ -1,6 +1,7 @@
 package e2gintest
 
 import (
+	"context"
 	"io"
 	"maps"
 	"net/http"
@@ -69,6 +70,7 @@ func (c *CloseNotifierResponseRecorder) CloseNotify() <-chan bool {
 }
 
 func (g *Gin) Run(r *Request) *CloseNotifierResponseRecorder {
+	ctx := context.Background()
 	var req *http.Request
 	w := &CloseNotifierResponseRecorder{
 		ResponseRecorder: httptest.NewRecorder(),
@@ -85,9 +87,9 @@ func (g *Gin) Run(r *Request) *CloseNotifierResponseRecorder {
 	g.engine.Handle(r.Method, r.RegUri, r.Handlers...)
 	switch r.Method {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-		req, _ = http.NewRequest(r.Method, r.ReqUri, r.Body)
+		req, _ = http.NewRequestWithContext(ctx, r.Method, r.ReqUri, r.Body)
 	case http.MethodGet, http.MethodOptions:
-		req, _ = http.NewRequest(r.Method, r.ReqUri, nil)
+		req, _ = http.NewRequestWithContext(ctx, r.Method, r.ReqUri, nil)
 	}
 
 	maps.Copy(req.Header, r.Header)

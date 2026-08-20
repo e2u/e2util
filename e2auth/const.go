@@ -7,7 +7,8 @@ import (
 type ErrCode string
 
 const (
-	ErrCodeInvalidInput       ErrCode = "invalid_input"
+	ErrCodeInvalidInput ErrCode = "invalid_input"
+	//nolint:gosec // G101
 	ErrCodeInvalidCredentials ErrCode = "invalid_credentials"
 	ErrCodeInvalidPassword    ErrCode = "invalid_password"
 	ErrCodeUserNotFound       ErrCode = "user_not_found"
@@ -27,10 +28,6 @@ type StatusCode string
 const (
 	StatusCodeError   StatusCode = "error"
 	StatusCodeSuccess StatusCode = "success"
-)
-
-const (
-	tokenLen = 32
 )
 
 const (

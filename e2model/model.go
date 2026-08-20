@@ -42,10 +42,8 @@ type NullBool struct {
 
 func NewNullBool(b bool, err error) *NullBool {
 	return &NullBool{
-		NullBool: sql.NullBool{
-			Bool:  b,
-			Valid: err == nil,
-		},
+		Bool:  b,
+		Valid: err == nil,
 		Error: err,
 	}
 }

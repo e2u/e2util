@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/e2u/e2util/e2crypto"
 	"github.com/e2u/e2util/e2exec"
 	"github.com/e2u/e2util/e2jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -72,7 +72,7 @@ func changeEmail(c *gin.Context) {
 	}
 
 	claims := &jwt.RegisteredClaims{
-		ID:        uuid.NewString(),
+		ID:        uuid.NewV4().String(),
 		Issuer:    issuerRecover,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(durationRecover)),
 	}

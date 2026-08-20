@@ -34,7 +34,7 @@ func InitWords() error {
 	localFile := filepath.Join(os.TempDir(), "e2u_test_all_en_words.json")
 	logrus.Infof("cache local words to: %s", localFile)
 	if e2os.FileExists(localFile) {
-		if data, err := os.ReadFile(localFile); err == nil {
+		if data, err := os.ReadFile(filepath.Clean(localFile)); err == nil {
 			if err = e2json.MustFromJSONByte(data, &words); err == nil {
 				return nil
 			}

@@ -34,7 +34,7 @@ func RegisterRouters(router *gin.RouterGroup, db *gorm.DB, opts ...RouterOption)
 	}
 
 	tables := []schema.Tabler{&User{}, &PasswordResetToken{}, &OTPRecoveryCode{}, &Session{}, &OAuth2Token{}}
-	if cfg.db.Dialector.Name() == "postgres" {
+	if cfg.db.Name() == "postgres" {
 		cfg.db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", cfg.tableSchema))
 		for _, table := range tables {
 			if err := cfg.db.Table(fmt.Sprintf("%s.%s", cfg.tableSchema, table.TableName())).AutoMigrate(table); err != nil {

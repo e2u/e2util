@@ -66,17 +66,37 @@ func (r *Context) URL(u string) *Context {
 	return r
 }
 
+// func (r *Context) ConnectTimeout(timeout time.Duration) *Context {
+//	r.connectTimeout = timeout
+//	if r.connectTimeout > 0 {
+//		ct := func(ctx context.Context, network, addr string) (net.Conn, error) {
+//			conn, err := net.DialTimeout(network, addr, r.connectTimeout)
+//			if err != nil {
+//				return nil, err
+//			}
+//			return conn, nil
+//		}
+//
+//		if r.transport == nil {
+//			r.transport = &http.Transport{
+//				DialContext: ct,
+//			}
+//		} else {
+//			r.transport.DialContext = ct
+//		}
+//	}
+//	return r
+//}
+
 func (r *Context) ConnectTimeout(timeout time.Duration) *Context {
 	r.connectTimeout = timeout
 	if r.connectTimeout > 0 {
-		ct := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			conn, err := net.DialTimeout(network, addr, r.connectTimeout)
-			if err != nil {
-				return nil, err
-			}
-			return conn, nil
+		dialer := &net.Dialer{
+			Timeout: r.connectTimeout,
 		}
-
+		ct := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, addr)
+		}
 		if r.transport == nil {
 			r.transport = &http.Transport{
 				DialContext: ct,
@@ -157,8 +177,8 @@ func (r *Context) SetCookies(c []*http.Cookie) *Context {
 
 // Proxy set proxy, e.g. socks5://127.0.0.1:1080, http://127.0.0.1:3128
 func (r *Context) Proxy(p string) *Context {
-    // Proxy support disabled for testing; ignore proxy settings
-    return r
+	// Proxy support disabled for testing; ignore proxy settings
+	return r
 }
 
 func (r *Context) DumpRequest(w io.Writer, body bool) *Context {

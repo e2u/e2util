@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -105,15 +106,15 @@ func GetIP() (string, error) {
 
 // UploadToS3 不推荐再使用
 func UploadToS3(sess *session.Session, localfile, bucket, s3path string) error {
-	file, err := os.Open(localfile)
+	f, err := os.Open(filepath.Clean(localfile))
 	if err != nil {
 		return err
 	}
 	svc := s3manager.NewUploader(sess)
 	_, err = svc.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(s3path),
-		Body:   file,
+		Bucket: new(bucket),
+		Key:    new(s3path),
+		Body:   f,
 	})
 	return err
 }

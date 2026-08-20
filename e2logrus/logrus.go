@@ -66,7 +66,7 @@ func CloneLogrus(orig *logrus.Logger) *logrus.Logger {
 	return newLogger
 }
 
-var seqNum uint64
+var seqNum atomic.Uint64
 
 type SeqHook struct{}
 
@@ -75,7 +75,7 @@ func (h *SeqHook) Levels() []logrus.Level {
 }
 
 func (h *SeqHook) Fire(entry *logrus.Entry) error {
-	seq := atomic.AddUint64(&seqNum, 1)
+	seq := seqNum.Add(1)
 	entry.Data["seq"] = fmt.Sprintf("0x%016x", seq)
 	return nil
 }
@@ -137,7 +137,7 @@ func NewLogger(cfg *Config) *logrus.Logger {
 		logPath := output[7:]
 		logDir := filepath.Dir(logPath)
 		if _, err := os.Stat(logDir); os.IsNotExist(err) {
-			if err := os.MkdirAll(logDir, 0755); err != nil {
+			if err := os.MkdirAll(logDir, 0750); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Failed to create log directory %s.\n", logDir)
 			}
 		}

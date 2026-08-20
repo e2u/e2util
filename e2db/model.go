@@ -97,7 +97,7 @@ type JSONBArray JSONBHandler[[]any]
 // type JSONBArray []any
 func (jsonField JSONBArray) Value() (driver.Value, error) {
 	if jsonField.Data == nil {
-		return nil, nil // Return nil for SQL NULL when Data is nil.
+		return nil, errors.New("value is nil") // Return nil for SQL NULL when Data is nil.
 		// 當 Data 為 nil 時返回 nil 以得到 SQL NULL。
 	}
 	return json.Marshal(jsonField.Data)
@@ -174,7 +174,7 @@ func (jsonField *JSONBMap) UnmarshalJSON(data []byte) error {
 // type JSONBMap map[string]any
 func (jsonField JSONBMap) Value() (driver.Value, error) {
 	if jsonField.Data == nil {
-		return nil, nil // Return nil for SQL NULL when Data is nil.
+		return nil, errors.New("value nil") // Return nil for SQL NULL when Data is nil.
 		// 當 Data 為 nil 時返回 nil 以得到 SQL NULL。
 	}
 	return json.Marshal(jsonField.Data)

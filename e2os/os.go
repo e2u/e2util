@@ -2,6 +2,7 @@ package e2os
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -110,8 +111,10 @@ func FileExists(path string) bool {
 }
 
 func SendSignalToProcess(processName string, signal os.Signal) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
 	getPidCmd := []string{"pgrep", processName}
-	cmd := exec.Command(getPidCmd[0], getPidCmd[1:]...) // #nosec G204
+	cmd := exec.CommandContext(ctx, getPidCmd[0], getPidCmd[1:]...) // #nosec G204
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Error("execute command", "error", err, "command", getPidCmd)

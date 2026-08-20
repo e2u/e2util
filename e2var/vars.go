@@ -9,16 +9,17 @@ func MustStringValue(s *string) string {
 	return *s
 }
 
+//go:fix inline
 func P[T any](i T) *T {
-	return &i
+	return new(i)
 }
 
 func NeverNullPoint[T any](i T, defVal T) *T {
 	v := reflect.ValueOf(i)
 	if !v.IsValid() || v.IsZero() {
-		return P(defVal)
+		return new(defVal)
 	}
-	return P(i)
+	return new(i)
 }
 
 func NeverNull[T any](i T, defVal T) T {

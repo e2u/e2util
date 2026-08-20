@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -31,7 +31,7 @@ func login(c *gin.Context) {
 	}
 
 	if input.Email == "" && input.Username == "" {
-		cfg.logger.Warn("Invalid email or username, email=%v, username=%v", input.Email, input.Username)
+		cfg.logger.Warnf("Invalid email or username, email=%v, username=%v", input.Email, input.Username)
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidCredentials, "invalid email or username"))
 		return
 	}
@@ -44,12 +44,12 @@ func login(c *gin.Context) {
 
 	// Verify password
 	if err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(input.Password)); err != nil {
-		cfg.logger.Warn("Invalid password, email=%v, username=%v", input.Email, input.Username)
+		cfg.logger.Warnf("Invalid password, email=%v, username=%v", input.Email, input.Username)
 		c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeInvalidCredentials, "invalid password"))
 		return
 	}
 
-	sessionId := uuid.NewString()
+	sessionId := uuid.NewV4().String()
 	// Create session
 	// duration := e2var.IfElse(input.RememberMe, true, durationSession, durationSessionLong)
 	duration := durationSessionLong
@@ -70,7 +70,7 @@ func login(c *gin.Context) {
 	}
 	err = createSession(session)
 	if err != nil {
-		cfg.logger.Error("Failed to create session, email=%v, username=%v: %v", input.Email, input.Username, err)
+		cfg.logger.Errorf("Failed to create session, email=%v, username=%v: %v", input.Email, input.Username, err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeSessionFailed, err))
 		return
 	}

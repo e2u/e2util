@@ -50,9 +50,9 @@ func Benchmark_AtomicAdd(b *testing.B) {
 
 func Benchmark_Add_Parallel_Optimized(b *testing.B) {
 	var m sync.Map
-	var counter int64
+	var counter atomic.Int64
 	b.RunParallel(func(pb *testing.PB) {
-		id := atomic.AddInt64(&counter, 1) // 每個 goroutine 獲取唯一 ID
+		id := counter.Add(1) // 每個 goroutine 獲取唯一 ID
 		for pb.Next() {
 			Add[int](&m, fmt.Sprintf("key%d", id), -1)
 		}

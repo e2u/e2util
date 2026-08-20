@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,12 +36,12 @@ func register(c *gin.Context) {
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		cfg.logger.Warn("Failed to hash password: %v", err)
+		cfg.logger.Warnf("Failed to hash password: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 	}
 
 	newUser := &User{
-		Id:            uuid.NewString(),
+		Id:            uuid.NewV4().String(),
 		Name:          input.Username,
 		Email:         input.Email,
 		EmailVerified: false,

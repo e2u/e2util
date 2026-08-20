@@ -4,28 +4,31 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Logger defines the logging interface for middleware.
 type Logger interface {
-	Info(format string, args ...any)
-	Error(format string, args ...any)
-	Warn(format string, args ...any)
+	// Info(format string, args ...any)
+	// Error(format string, args ...any)
+	// Warn(format string, args ...any)
+	Infof(format string, args ...any)
+	Errorf(format string, args ...any)
+	Warnf(format string, args ...any)
 }
 
 // ConsoleLogger is a simple logger that writes to stdout.
 type ConsoleLogger struct{}
 
-func (cl *ConsoleLogger) Info(format string, args ...any) {
+func (cl *ConsoleLogger) Infof(format string, args ...any) {
 	fmt.Printf("[INFO] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
-func (cl *ConsoleLogger) Error(format string, args ...any) {
+func (cl *ConsoleLogger) Errorf(format string, args ...any) {
 	fmt.Printf("[ERROR] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
-func (cl *ConsoleLogger) Warn(format string, args ...any) {
+func (cl *ConsoleLogger) Warnf(format string, args ...any) {
 	fmt.Printf("[WARN] %s %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
 }
 
@@ -33,13 +36,13 @@ func (cl *ConsoleLogger) Warn(format string, args ...any) {
 type NoopLogger struct{}
 
 // Info does nothing.
-func (nl *NoopLogger) Info(format string, args ...any) {}
+func (nl *NoopLogger) Infof(format string, args ...any) {}
 
 // Error does nothing.
-func (nl *NoopLogger) Error(format string, args ...any) {}
+func (nl *NoopLogger) Errorf(format string, args ...any) {}
 
 // Warn does nothing.
-func (nl *NoopLogger) Warn(format string, args ...any) {}
+func (nl *NoopLogger) Warnf(format string, args ...any) {}
 
 // loggingMiddleware logs request details using a Logger interface.
 func loggingMiddleware(logger Logger) gin.HandlerFunc {
@@ -58,7 +61,7 @@ func loggingMiddleware(logger Logger) gin.HandlerFunc {
 			if strID, ok := id.(string); ok {
 				userID = strID
 			} else {
-				logger.Warn("Invalid userID type in context")
+				logger.Warnf("Invalid userID type in context")
 			}
 		}
 
@@ -76,19 +79,19 @@ func loggingMiddleware(logger Logger) gin.HandlerFunc {
 			// Set the request ID in response header for traceability
 			c.Header("X-Request-ID", requestID)
 		}
-		logger.Info("Request: requestID=%s method=%s path=%s status=%d clientIP=%s userID=%s latency=%v",
+		logger.Infof("Request: requestID=%s method=%s path=%s status=%d clientIP=%s userID=%s latency=%v",
 			requestID, method, path, status, clientIP, userID, latency)
 
 		// Log any errors
 		if len(c.Errors) > 0 {
 			for _, err := range c.Errors {
-				logger.Error("Request error: method=%s path=%s error=%s userID=%s",
+				logger.Errorf("Request error: method=%s path=%s error=%s userID=%s",
 					method, path, err.Error(), userID)
 			}
 		}
 
 		if status == http.StatusForbidden && c.Request.Method == http.MethodPost {
-			logger.Warn("CSRF validation failed: method=%s path=%s clientIP=%s userID=%s",
+			logger.Warnf("CSRF validation failed: method=%s path=%s clientIP=%s userID=%s",
 				method, path, clientIP, userID)
 		}
 	}
