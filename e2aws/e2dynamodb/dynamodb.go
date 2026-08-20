@@ -1,11 +1,13 @@
 package e2dynamodb
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 const (
@@ -23,14 +25,14 @@ const (
 
 type DynamoDB struct {
 	tableName *string
-	dy        *dynamodb.DynamoDB
+	client    *dynamodb.Client
 }
 
 // New NewDynamoDB
-func New(tableName string, sess *session.Session) *DynamoDB {
+func New(tableName string, cfg aws.Config, optFns ...func(*dynamodb.Options)) *DynamoDB {
 	return &DynamoDB{
-		tableName: new(tableName),
-		dy:        dynamodb.New(sess),
+		tableName: aws.String(tableName),
+		client:    dynamodb.NewFromConfig(cfg, optFns...),
 	}
 }
 
@@ -40,30 +42,47 @@ type Key struct {
 	Value any
 }
 
-func (d *DynamoDB) BuildKeyValue(k *Key) *dynamodb.AttributeValue {
+func (d *DynamoDB) BuildKeyValue(k *Key) types.AttributeValue {
 	switch k.Type {
 	case KeyTypeBinary:
-		return &dynamodb.AttributeValue{B: k.Value.([]byte)}
+		return &types.AttributeValueMemberB{Value: k.Value.([]byte)}
 	case KeyTypeBool:
-		return &dynamodb.AttributeValue{BOOL: new(k.Value.(bool))}
+		return &types.AttributeValueMemberBOOL{Value: k.Value.(bool)}
 	case KeyTypeBinaryArray:
-		return &dynamodb.AttributeValue{BS: k.Value.([][]byte)}
+		return &types.AttributeValueMemberBS{Value: k.Value.([][]byte)}
 	case KeyTypeList:
-		return &dynamodb.AttributeValue{L: k.Value.([]*dynamodb.AttributeValue)}
+		return &types.AttributeValueMemberL{Value: k.Value.([]types.AttributeValue)}
 	case KeyTypeMap:
-		return &dynamodb.AttributeValue{M: k.Value.(map[string]*dynamodb.AttributeValue)}
+		return &types.AttributeValueMemberM{Value: k.Value.(map[string]types.AttributeValue)}
 	case KeyTypeNumber:
-		return &dynamodb.AttributeValue{N: new(k.Value.(string))}
+		return &types.AttributeValueMemberN{Value: k.Value.(string)}
 	case KeyTypeNumberArray:
-		return &dynamodb.AttributeValue{NS: k.Value.([]*string)}
+		return &types.AttributeValueMemberNS{Value: stringSet(k.Value)}
 	case KeyTypeNull:
-		return &dynamodb.AttributeValue{NULL: new(k.Value.(bool))}
+		return &types.AttributeValueMemberNULL{Value: k.Value.(bool)}
 	case KeyTypeString:
-		return &dynamodb.AttributeValue{S: new(k.Value.(string))}
+		return &types.AttributeValueMemberS{Value: k.Value.(string)}
 	case KeyTypeStringArray:
-		return &dynamodb.AttributeValue{SS: k.Value.([]*string)}
+		return &types.AttributeValueMemberSS{Value: stringSet(k.Value)}
 	default:
-		return &dynamodb.AttributeValue{S: new(k.Value.(string))}
+		return &types.AttributeValueMemberS{Value: k.Value.(string)}
+	}
+}
+
+func stringSet(v any) []string {
+	switch x := v.(type) {
+	case []string:
+		return x
+	case []*string:
+		out := make([]string, 0, len(x))
+		for _, s := range x {
+			if s != nil {
+				out = append(out, *s)
+			}
+		}
+		return out
+	default:
+		return v.([]string)
 	}
 }
 
@@ -81,18 +100,18 @@ func (d *DynamoDB) GetByPKAndSK(partitionKey *Key, sortKey *Key, outputItem any,
 	if len(opts) > 0 {
 		gi = opts[0]
 	}
-	km := make(map[string]*dynamodb.AttributeValue)
+	km := make(map[string]types.AttributeValue)
 	km[partitionKey.Name] = d.BuildKeyValue(partitionKey)
 	if sortKey != nil {
 		km[sortKey.Name] = d.BuildKeyValue(sortKey)
 	}
 	gi.TableName = d.tableName
 	gi.Key = km
-	out, err := d.dy.GetItem(gi)
+	out, err := d.client.GetItem(context.Background(), gi)
 	if err != nil {
 		return err
 	}
-	if err := dynamodbattribute.UnmarshalMap(out.Item, outputItem); err != nil {
+	if err := attributevalue.UnmarshalMap(out.Item, outputItem); err != nil {
 		return err
 	}
 	return nil
@@ -100,7 +119,7 @@ func (d *DynamoDB) GetByPKAndSK(partitionKey *Key, sortKey *Key, outputItem any,
 
 // Put 寫入一條數據
 func (d *DynamoDB) Put(ar any, opts ...*dynamodb.PutItemInput) error {
-	av, err := dynamodbattribute.MarshalMap(ar)
+	av, err := attributevalue.MarshalMap(ar)
 	if err != nil {
 		return err
 	}
@@ -110,7 +129,7 @@ func (d *DynamoDB) Put(ar any, opts ...*dynamodb.PutItemInput) error {
 	}
 	pi.TableName = d.tableName
 	pi.Item = av
-	_, err = d.dy.PutItem(pi)
+	_, err = d.client.PutItem(context.Background(), pi)
 	return err
 }
 
@@ -120,13 +139,13 @@ func (d *DynamoDB) DeleteByPKAndSK(partitionKey *Key, sortKey *Key, opts ...*dyn
 		di = opts[0]
 	}
 	di.TableName = d.tableName
-	km := make(map[string]*dynamodb.AttributeValue)
+	km := make(map[string]types.AttributeValue)
 	km[partitionKey.Name] = d.BuildKeyValue(partitionKey)
 	if sortKey != nil {
 		km[sortKey.Name] = d.BuildKeyValue(sortKey)
 	}
 	di.Key = km
-	_, err := d.dy.DeleteItem(di)
+	_, err := d.client.DeleteItem(context.Background(), di)
 
 	return err
 }
@@ -141,7 +160,17 @@ func (d *DynamoDB) ScanPages(fn func(page *dynamodb.ScanOutput, lastPage bool) b
 		si = opts[0]
 	}
 	si.TableName = d.tableName
-	return d.dy.ScanPages(si, fn)
+	p := dynamodb.NewScanPaginator(d.client, si)
+	for p.HasMorePages() {
+		page, err := p.NextPage(context.Background())
+		if err != nil {
+			return err
+		}
+		if !fn(page, !p.HasMorePages()) {
+			return nil
+		}
+	}
+	return nil
 }
 
 func (d *DynamoDB) QueryPages(fn func(page *dynamodb.QueryOutput, lastPage bool) bool, opts ...*dynamodb.QueryInput) error {
@@ -150,5 +179,15 @@ func (d *DynamoDB) QueryPages(fn func(page *dynamodb.QueryOutput, lastPage bool)
 		qi = opts[0]
 	}
 	qi.TableName = d.tableName
-	return d.dy.QueryPages(qi, fn)
+	p := dynamodb.NewQueryPaginator(d.client, qi)
+	for p.HasMorePages() {
+		page, err := p.NextPage(context.Background())
+		if err != nil {
+			return err
+		}
+		if !fn(page, !p.HasMorePages()) {
+			return nil
+		}
+	}
+	return nil
 }

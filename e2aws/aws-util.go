@@ -1,14 +1,16 @@
 package e2aws
 
 import (
+	"context"
 	"errors"
 	"net"
 	"os"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,26 +19,23 @@ var (
 	hostName string
 )
 
-// NewSession 返回一个 aws session
-// 默认不输出日志 ，如需日志输出，可以在 cfgs 参数中传入
+// NewSession 返回一个 aws.Config（AWS SDK v2）。
+// 默认不输出日志 ，如需日志输出，可以在 optFns 参数中传入
 //
-//	cfgs := aws.NewConfig().
-//		WithLogLevel(aws.LogDebugWithHTTPBody).
-//		WithLogger(aws.LoggerFunc(func(args ...interface{}) {
-//			fmt.Fprintln(os.Stdout, args...)
-//		}))
-func NewSession(region string, cfgs ...*aws.Config) *session.Session {
-	cfg := aws.NewConfig().
-		WithRegion(region).
-		WithCredentialsChainVerboseErrors(true).
-		WithLogLevel(aws.LogOff)
+//	cfg := e2aws.NewSession("us-east-1",
+//		config.WithClientLogMode(aws.LogRequestWithBody|aws.LogResponseWithBody),
+//	)
+func NewSession(region string, optFns ...func(*config.LoadOptions) error) aws.Config {
+	opts := make([]func(*config.LoadOptions) error, 0, 1+len(optFns))
+	opts = append(opts, config.WithRegion(region))
+	opts = append(opts, optFns...)
 
-	sess, err := session.NewSession(cfg)
+	cfg, err := config.LoadDefaultConfig(context.Background(), opts...)
 	if err != nil {
 		logrus.Errorf("aws new session error=%v", err)
-		return nil
+		return aws.Config{}
 	}
-	return sess
+	return cfg
 }
 
 func GetHostName() (string, error) {
@@ -105,15 +104,16 @@ func GetIP() (string, error) {
 }
 
 // UploadToS3 不推荐再使用
-func UploadToS3(sess *session.Session, localfile, bucket, s3path string) error {
+func UploadToS3(cfg aws.Config, localfile, bucket, s3path string) error {
 	f, err := os.Open(filepath.Clean(localfile))
 	if err != nil {
 		return err
 	}
-	svc := s3manager.NewUploader(sess)
-	_, err = svc.Upload(&s3manager.UploadInput{
-		Bucket: new(bucket),
-		Key:    new(s3path),
+	defer func() { _ = f.Close() }()
+	svc := manager.NewUploader(s3.NewFromConfig(cfg))
+	_, err = svc.Upload(context.Background(), &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(s3path),
 		Body:   f,
 	})
 	return err
