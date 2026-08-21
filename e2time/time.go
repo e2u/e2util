@@ -25,7 +25,7 @@ func AddDay(t time.Time, days int) time.Time {
 
 //go:fix inline
 func TimePointer(t time.Time) *time.Time {
-	return new(t)
+	return &t
 }
 
 func SleepRandom(min time.Duration, max time.Duration) time.Duration {

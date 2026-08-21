@@ -1,23 +1,12 @@
 # e2awsv2
 
-## Overview
-The `e2awsv2` module contains utilities built on the AWS SDK v2, offering higher‑level abstractions for AWS services.
+`e2awsv2` is a leftover stub. AWS SDK for Go v2 helpers now live in [`e2aws`](../e2aws).
 
-## Installation
-```bash
-go get github.com/e2u/e2util/e2awsv2
-```
+Use:
 
-## Usage
 ```go
-import "github.com/e2u/e2util/e2awsv2"
-
-// Example: initialize DynamoDB client (v2)
-client := e2awsv2.NewDynamoDB(cfg)
+import "github.com/e2u/e2util/e2aws"
+import "github.com/e2u/e2util/e2aws/e2s3"
 ```
 
-## Examples
-*Provide code snippets for common operations.*
-
-## API Reference
-*Exported functions, types, and constants.*
+`e2awsv2/e2s3v2` still exposes `ParseS3Path` for compatibility. New code should call `e2s3.S3.ParseS3Path` instead.

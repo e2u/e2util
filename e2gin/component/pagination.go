@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"math"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/e2u/e2util/e2strconv"
@@ -24,6 +25,8 @@ const (
 	DefaultOrderField  = "created_at"
 	JSONItemsKey       = "items"
 )
+
+var orderFieldIdent = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$`)
 
 // PaginationResult holds paginated data
 // PaginationResult 保存分頁數據
@@ -65,9 +68,21 @@ func BuildQueryUri(c *gin.Context, nv map[string]any, replaceQuery bool) string 
 	for k, v := range nv {
 		qv.Set(k, fmt.Sprintf("%v", v))
 	}
-	// Sanitize the URL to prevent injection
-	// 消毒 URL 以防止注入
-	return fmt.Sprintf("%s?%s", c.Request.URL.Path, url.QueryEscape(qv.Encode()))
+	encoded := qv.Encode()
+	if encoded == "" {
+		return c.Request.URL.Path
+	}
+	return c.Request.URL.Path + "?" + encoded
+}
+
+func validOrderFields(s string) bool {
+	for _, f := range strings.Split(s, ",") {
+		f = strings.TrimSpace(f)
+		if f == "" || !orderFieldIdent.MatchString(f) {
+			return false
+		}
+	}
+	return true
 }
 
 // parsePaginationOptions parses and validates query parameters
@@ -101,6 +116,9 @@ func parsePaginationOptions(c *gin.Context, opts ...*PaginationOption) (*Paginat
 	}
 	if v, ok := c.GetQuery(NameOrderField); ok {
 		if v != "" {
+			if !validOrderFields(v) {
+				return nil, fmt.Errorf("invalid order field: %s", v)
+			}
 			opt.OrderField = v
 		}
 	}
@@ -117,6 +135,9 @@ func parsePaginationOptions(c *gin.Context, opts ...*PaginationOption) (*Paginat
 	// 確保空或無效欄位的默認值
 	if opt.OrderField == "" {
 		opt.OrderField = DefaultOrderField
+	}
+	if !validOrderFields(opt.OrderField) {
+		return nil, fmt.Errorf("invalid order field: %s", opt.OrderField)
 	}
 	if opt.OrderDirection == "" {
 		opt.OrderDirection = ValueOrderByDesc

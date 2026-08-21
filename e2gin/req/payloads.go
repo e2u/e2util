@@ -2,6 +2,7 @@ package req
 
 import (
 	"cmp"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -89,7 +90,7 @@ func ParseFilterPayload(s string) ([]Filter, error) {
 				tr.Operator = operator
 				tr.Field = strings.TrimSuffix(key, operator)
 				tr.Symbol, _ = operatorSymbol.DefaultString(operator, "")
-				continue
+				break
 			}
 		}
 		if tr.Operator == "" {
@@ -132,6 +133,9 @@ func ParseRangePayload(s string) (RangePayload, error) {
 	var qa []int
 	if err := e2json.MustFromJSONString(s, &qa); err != nil {
 		return r, err
+	}
+	if len(qa) < 2 {
+		return r, fmt.Errorf("invalid range payload")
 	}
 	r.Start = qa[0]
 	r.End = qa[1]

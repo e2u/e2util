@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/e2u/e2util/e2io"
 	"github.com/fsnotify/fsnotify"
@@ -13,19 +12,16 @@ import (
 )
 
 type DynamicHTMLRender struct {
-	mu sync.RWMutex
-	// tu          sync.Mutex
-	templates   *template.Template
-	eventTimers map[string]*time.Timer
-	dir         string
-	args        any
+	mu        sync.RWMutex
+	templates *template.Template
+	dir       string
+	args      []any
 }
 
 func NewDynamicHTMLRender(dir string, args ...any) *DynamicHTMLRender {
 	dhr := &DynamicHTMLRender{
-		dir:         dir,
-		args:        args,
-		eventTimers: make(map[string]*time.Timer),
+		dir:  dir,
+		args: args,
 	}
 	dhr.reloadTemplates()
 	go dhr.watchTemplates()
@@ -47,7 +43,7 @@ func (d *DynamicHTMLRender) reloadTemplates() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	tmpl, err := ParseTemplates(os.DirFS(d.dir), d.args)
+	tmpl, err := ParseTemplates(os.DirFS(d.dir), d.args...)
 	if err != nil {
 		logrus.Errorf("Failed to reload templates: %v", err)
 		return

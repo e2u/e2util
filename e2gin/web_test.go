@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -487,7 +488,16 @@ func TestGetContentType(t *testing.T) {
 		{"/data.json", "application/json"},
 		{"/image.png", "image/png"},
 		{"/icon.ico", "image/x-icon"},
+		{"/page.htm", "text/html; charset=utf-8"},
+		{"/photo.jpg", "image/jpeg"},
+		{"/photo.jpeg", "image/jpeg"},
+		{"/anim.gif", "image/gif"},
+		{"/icon.svg", "image/svg+xml"},
+		{"/font.woff", "font/woff"},
 		{"/font.woff2", "font/woff2"},
+		{"/font.ttf", "font/ttf"},
+		{"/font.eot", "application/vnd.ms-fontobject"},
+		{"/font.otf", "font/otf"},
 		{"/unknown.xyz", "application/octet-stream"},
 	}
 
@@ -497,4 +507,59 @@ func TestGetContentType(t *testing.T) {
 			assert.Equal(t, tt.wantType, got)
 		})
 	}
+}
+
+func TestFaviconAbortAndQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	eng := DefaultEngine(&Option{DisabledPprof: true, DisableHealth: true, DisableGzip: true})
+
+	for _, path := range []string{"/favicon.ico", "/favicon.ico?v=1"} {
+		w := httptest.NewRecorder()
+		req, err := http.NewRequest(http.MethodGet, path, nil)
+		require.NoError(t, err)
+		eng.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code, path)
+		assert.Equal(t, "image/x-icon", w.Header().Get("Content-Type"), path)
+		assert.NotEmpty(t, w.Body.Bytes())
+	}
+}
+
+func TestRecoveryOnEngineRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	eng := DefaultEngine(&Option{DisabledPprof: true, DisableHealth: true, DisableGzip: true})
+	eng.GET("/boom", func(c *gin.Context) {
+		panic("boom")
+	})
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, "/boom", nil)
+	require.NoError(t, err)
+	eng.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "Internal Server Error")
+	assert.NotEmpty(t, w.Header().Get("X-Track-SessionId"))
+}
+
+func TestSPAIndexReloadsInDev(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dir := t.TempDir()
+	index := filepath.Join(dir, "index.html")
+	require.NoError(t, os.WriteFile(index, []byte("v1"), 0o600))
+
+	sfs := []*StaticFiles{{FS: os.DirFS(dir), HttpPath: "/", LocalPath: dir}}
+	router := gin.New()
+	router.NoRoute(noRouteStaticIndex(sfs), noRouteFavicon(), noRouteProxy(&Option{}))
+
+	serve := func() string {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/app", nil)
+		req.Header.Set("Accept", "text/html")
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		return w.Body.String()
+	}
+
+	assert.Equal(t, "v1", serve())
+	require.NoError(t, os.WriteFile(index, []byte("v2"), 0o600))
+	assert.Equal(t, "v2", serve())
 }

@@ -2,8 +2,6 @@ package e2aws
 
 import (
 	"context"
-	"errors"
-	"net"
 	"os"
 	"path/filepath"
 
@@ -11,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/e2u/e2util/e2os"
 	"github.com/sirupsen/logrus"
 )
 
@@ -65,42 +64,9 @@ func MustGetIP() string {
 	return ""
 }
 
-// GetIP 获取当前运行 ec2 实例的 ip
+// GetIP 获取当前运行实例的 ipv4，实现见 e2os.ExternalIP
 func GetIP() (string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-			ip = ip.To4()
-			if ip == nil {
-				continue // not an ipv4 address
-			}
-			return ip.String(), nil
-		}
-	}
-	return "", errors.New("are you connected to the network?")
+	return e2os.ExternalIP()
 }
 
 // UploadToS3 不推荐再使用

@@ -1,22 +1,38 @@
 # e2os
 
-## Overview
-`e2os` offers OS‑related helpers such as environment variable management, file path utilities, and signal handling.
+OS helpers: file existence, working directory, retries, process signals, systemd unit text, and host IPv4.
 
-## Installation
 ```bash
 go get github.com/e2u/e2util/e2os
 ```
 
-## Usage
+## File and working directory
+
 ```go
 import "github.com/e2u/e2util/e2os"
 
-val := e2os.GetEnv("HOME", "/tmp")
+if e2os.FileExists("config.toml") {
+    // ...
+}
+
+_ = e2os.ChdirToAppRoot() // go test / go run → module root; binary → executable dir
+dir, _ := e2os.GetExecDir()
+wd := e2os.MustGetwd()
+_ = e2os.ChangeWorkdir("/var/app")
 ```
 
-## Examples
-*Show getting env vars with defaults and handling OS signals.*
+Environment variables live in `e2env`, not this package.
 
-## API Reference
-*Exported functions and types.*
+## Retry, IP, systemd, signals
+
+```go
+err := e2os.RetryRun(3, time.Second, func(i int) error {
+    return ping()
+})
+
+ip, err := e2os.ExternalIP()
+
+unit, err := e2os.InitSystemdService()
+
+err = e2os.SendSignalToProcess("my-daemon", syscall.SIGTERM)
+```

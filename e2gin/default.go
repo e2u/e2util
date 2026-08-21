@@ -23,10 +23,6 @@ var (
 	FuncMap = make(template.FuncMap)
 )
 
-type App[T any] interface {
-	Routers(r *gin.RouterGroup) T
-}
-
 type TemplatesOption struct {
 	TrimTags   bool // if TrimTags was true, all tags {{ and }} of the template would add - as {{- and -}}
 	MinifyHTML bool

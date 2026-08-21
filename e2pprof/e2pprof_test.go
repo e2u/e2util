@@ -1,7 +1,15 @@
 package e2pprof
 
-import "testing"
+import (
+	"context"
+	"testing"
+	"time"
+)
 
-func TestPlaceholder(t *testing.T) {
-	// TODO: add tests for e2pprof utilities
+func TestInit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	Init(ctx)
+	// Init starts the pprof HTTP server on a random local port in a goroutine.
+	time.Sleep(50 * time.Millisecond)
 }

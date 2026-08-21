@@ -22,7 +22,7 @@ type User struct {
 	Roles           []string  `gorm:"column:roles;index;type:text[]" json:"roles"`
 	OTPEnable       bool      `gorm:"column:otp_enable;default:false" json:"otp_enable"`
 	OTPSecret       string    `gorm:"column:otp_secret;" json:"otp_secret"`
-	LastLogin       time.Time `gorm:"column:last_login;type:timestamptz" json:"last_login"`
+	LastLogin       time.Time `gorm:"column:last_login" json:"last_login"`
 	OAuth2Providers []string  `gorm:"column:oauth2_providers;index;type:text[]" json:"oauth2_providers"`
 	ExternalID      string    `gorm:"column:external_id;index;unique;not null" json:"external_id"`
 }

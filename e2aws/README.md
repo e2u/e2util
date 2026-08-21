@@ -1,7 +1,9 @@
 # e2aws
 
 ## Overview
-The `e2aws` module provides utilities for interacting with AWS services, including S3, DynamoDB, and IAM helpers.
+The `e2aws` module provides AWS SDK for Go v2 helpers for S3, DynamoDB, and SQS.
+
+The old `e2awsv2` package is a leftover stub. New code should import `e2aws` (and `e2aws/e2s3`, `e2aws/e2dynamodb`, `e2aws/e2sqs`).
 
 ## Installation
 ```bash

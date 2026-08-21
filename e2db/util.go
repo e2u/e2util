@@ -51,7 +51,6 @@ func (c *Connect) DropCascadTables(ctx context.Context, tables ...any) error {
 		}
 		return nil
 	})
-	return nil
 }
 
 func (c *Connect) Truncate(ctx context.Context, cascad bool, tables ...any) error {
@@ -69,7 +68,6 @@ func (c *Connect) Truncate(ctx context.Context, cascad bool, tables ...any) erro
 		}
 		return nil
 	})
-	return nil
 }
 
 // DBHandler is a generic helper struct for database operations.

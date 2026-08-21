@@ -29,6 +29,12 @@ func Test_ParsePayload(t *testing.T) {
 		}
 	})
 
+	t.Run("RangePayload - short json array", func(t *testing.T) {
+		if _, err := ParseRangePayload("[3]"); err == nil {
+			t.Fatal("expected error for short range payload")
+		}
+	})
+
 	// FilterPayload tests
 	t.Run("FilterPayload - all operators", func(t *testing.T) {
 		str := `{
@@ -122,6 +128,12 @@ func Test_ParsePayload(t *testing.T) {
 	})
 
 	// SortPayload tests
+	t.Run("FilterPayload - invalid json", func(t *testing.T) {
+		if _, err := ParseFilterPayload("not-json"); err == nil {
+			t.Fatal("expected error for invalid filter payload")
+		}
+	})
+
 	t.Run("SortPayload - valid", func(t *testing.T) {
 		sp, err := ParseSortPayload(`["name","DESC"]`)
 		if err != nil {

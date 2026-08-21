@@ -38,10 +38,6 @@ import (
 //go:embed resources/favicon.ico
 var favicon []byte
 
-const (
-	keyDisableGzip = "__DISABLE_GZIP__"
-)
-
 type Option struct {
 	Root                   string // http url root
 	StaticFiles            []*StaticFiles
@@ -112,11 +108,7 @@ func DefaultEngine(opt *Option) *gin.Engine {
 		opt.Root = "/"
 	}
 
-	if opt.LogrusLogger == nil || reflect.ValueOf(opt.LogrusLogger).IsNil() {
-		eng.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339Nano, false))
-	} else {
-		eng.Use(ginrus.Ginrus(opt.LogrusLogger, time.RFC3339Nano, false))
-	}
+	applyEngineMiddleware(eng, opt)
 
 	if !opt.DisableHealth {
 		if opt.HealthPathPrefix == "" {
@@ -146,6 +138,7 @@ func DefaultEngine(opt *Option) *gin.Engine {
 	eng.RemoveExtraSlash = true
 	eng.HandleMethodNotAllowed = true
 
+	hasRootFavicon := false
 	if len(opt.StaticFiles) > 0 {
 		var watchingStatic sync.Map
 		for _, file := range opt.StaticFiles {
@@ -170,7 +163,14 @@ func DefaultEngine(opt *Option) *gin.Engine {
 			}
 			registerStaticFiles(eng, ffs, file.HttpPath, file.LocalPath)
 			settingEtag(ffs, file.HttpPath)
+			if !hasRootFavicon && cleanHttpPath(file.HttpPath) == "/" && staticHasFile(ffs, "favicon.ico") {
+				hasRootFavicon = true
+			}
 		}
+	}
+	if !hasRootFavicon {
+		eng.GET("/favicon.ico", serveFavicon)
+		eng.HEAD("/favicon.ico", serveFavicon)
 	}
 
 	// only the last one NoRoute method will be executed
@@ -182,15 +182,53 @@ func DefaultEngine(opt *Option) *gin.Engine {
 
 	eng.NoRoute(noRouteChain...)
 
-	if !opt.DisableGzip {
-		eng.Use(gzip.Gzip(gzip.DefaultCompression))
-	}
+	return eng
+}
 
+func staticHasFile(ffs fs.FS, name string) bool {
+	if ffs == nil {
+		return false
+	}
+	f, err := ffs.Open(name)
+	if err != nil {
+		return false
+	}
+	_ = f.Close()
+	return true
+}
+
+func applyEngineMiddleware(eng *gin.Engine, opt *Option) {
 	if !opt.DisableRecovery {
 		eng.Use(gin.CustomRecovery(customRecovery))
 	}
 
-	return eng
+	logger := logrus.StandardLogger()
+	if opt.LogrusLogger != nil && !reflect.ValueOf(opt.LogrusLogger).IsNil() {
+		logger = opt.LogrusLogger
+	}
+	eng.Use(ginrusWithSkip(logger, opt.SkipLogPaths))
+
+	if !opt.DisableGzip {
+		eng.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+}
+
+func ginrusWithSkip(logger *logrus.Logger, skip []string) gin.HandlerFunc {
+	h := ginrus.Ginrus(logger, time.RFC3339Nano, false)
+	if len(skip) == 0 {
+		return h
+	}
+	skipSet := make(map[string]struct{}, len(skip))
+	for _, p := range skip {
+		skipSet[p] = struct{}{}
+	}
+	return func(c *gin.Context) {
+		if _, ok := skipSet[c.Request.URL.Path]; ok {
+			c.Next()
+			return
+		}
+		h(c)
+	}
 }
 
 // loadIndexPage 从静态文件中加载 index.html
@@ -287,8 +325,8 @@ func startPprof(ctx context.Context, eng *gin.Engine, opt *Option) {
 //   - 非 SPA: /login → 查找并返回 login.html
 //   - SPA: 如果找不到对应页面，返回 index.html 由前端路由处理
 func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
-	// 预加载 index.html（用于 SPA 回退）
 	indexPageByte := loadIndexPage(sfs)
+	liveIndex := gin.Mode() != gin.ReleaseMode
 
 	return func(c *gin.Context) {
 		// 只处理 GET 和 HEAD 请求
@@ -330,14 +368,19 @@ func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 			return
 		}
 
+		index := indexPageByte
+		if liveIndex {
+			index = loadIndexPage(sfs)
+		}
+
 		// 提取页面名称（去掉前导 / 和 .html 后缀）
 		pageName := strings.TrimPrefix(reqUri, "/")
 		pageName = strings.TrimSuffix(pageName, ".html")
 
 		// 情况 1: 根路径，直接返回 index.html
 		if pageName == "" || pageName == "index" {
-			if len(indexPageByte) > 0 {
-				c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+			if len(index) > 0 {
+				c.Data(http.StatusOK, "text/html; charset=utf-8", index)
 				c.Abort()
 				return
 			}
@@ -358,8 +401,8 @@ func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 
 		// 情况 3: 没有找到对应页面，如果是 SPA 则返回 index.html
 		// 这样前端路由可以处理 /login 这样的路径
-		if len(indexPageByte) > 0 {
-			c.Data(http.StatusOK, "text/html; charset=utf-8", indexPageByte)
+		if len(index) > 0 {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", index)
 			c.Abort()
 			return
 		}
@@ -369,12 +412,16 @@ func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 }
 
 // the noRouteFavicon consider to run at last one
+func serveFavicon(c *gin.Context) {
+	c.Header("Cache-Control", "public, max-age=3600, must-revalidate")
+	c.Data(http.StatusOK, "image/x-icon", favicon)
+	c.Abort()
+}
+
 func noRouteFavicon() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.RequestURI == "/favicon.ico" {
-			c.Header("Cache-Control", "public, max-age=3600, must-revalidate")
-			c.Data(http.StatusOK, "image/x-icon", favicon)
-			return
+		if c.Request.URL.Path == "/favicon.ico" {
+			serveFavicon(c)
 		}
 	}
 }
@@ -439,8 +486,6 @@ func StartAndStopHttp(eng *gin.Engine, address string, port int, stop func()) {
 }
 
 func customRecovery(c *gin.Context, msg any) {
-	c.Set(keyDisableGzip, true)
-
 	trackId := uuid.New().String()
 
 	dumpReq := func() string {

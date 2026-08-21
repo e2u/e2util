@@ -2,6 +2,7 @@ package e2db
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,12 +30,14 @@ type Category struct {
 
 // 測試初始化函數
 func setupTestDB(t *testing.T) *Connect {
+	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 	cfg := &Config{
 		Driver: "sqlite",
-		Writer: "file::memory:?cache=shared",
+		Writer: dsn,
 		Readers: []string{
-			"file::memory:?cache=shared", // SQLite 模擬只讀連接
+			dsn,
 		},
+		EnableMigrate:       true,
 		SQLLogSlowThreshold: 100,
 		SQLLogColorful:      false,
 		LoggerConfig: &e2logrus.Config{
@@ -186,6 +189,22 @@ func TestAutoMigrate(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("expected 'products' table to exist, got count %d", count)
+	}
+}
+
+func TestAutoMigrateDisabled(t *testing.T) {
+	conn := setupTestDB(t)
+	conn.EnableMigrate = false
+	if err := conn.AutoMigrate(context.Background(), &Product{}); err != nil {
+		t.Fatalf("AutoMigrate with migrate disabled should no-op, got: %v", err)
+	}
+
+	var count int64
+	if err := conn.RW().Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='products'").Scan(&count).Error; err != nil {
+		t.Fatalf("failed to check table existence: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected no 'products' table when migrate is disabled, got count %d", count)
 	}
 }
 

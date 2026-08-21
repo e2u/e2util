@@ -78,26 +78,32 @@ func (w *worker) ConcurrentRun(arg Arg[string]) Result[processResult] {
 type DummyWorker struct{}
 
 func (w *DummyWorker) ConcurrentRun(arg Arg[string]) Result[string] {
-	// 模擬 CPU 密集型任務
-	start := time.Now()
-	for time.Since(start) < 1*time.Second {
-		// Busy loop
-	}
 	return Result[string]{Value: "Done: " + arg.Value}
 }
 
 func Test_c20(t *testing.T) {
+	const n = 20
 	ctx := context.Background()
-	tasks := make(chan Task[string, string], 100)
+	tasks := make(chan Task[string, string], n)
 	go func() {
-		for i := range 2000 {
+		for i := range n {
 			tasks <- NewTask(&DummyWorker{}, fmt.Sprintf("Task%d", i))
 		}
 		close(tasks)
 	}()
 
 	results := Exec(ctx, runtime.NumCPU(), tasks, 10)
+	count := 0
 	for r := range results {
-		fmt.Println(r.Value, r.Err)
+		if r.Err != nil {
+			t.Errorf("task %s: %v", r.Refer, r.Err)
+		}
+		if r.Value == "" {
+			t.Errorf("empty result for task %s", r.Refer)
+		}
+		count++
+	}
+	if count != n {
+		t.Errorf("expected %d results, got %d", n, count)
 	}
 }

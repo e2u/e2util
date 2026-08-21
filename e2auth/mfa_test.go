@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 )
 
 func TestMFAVerifySuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	// Setup test DB
 	conn := setupTestDB(t)
 
@@ -37,7 +39,10 @@ func TestMFAVerifySuccess(t *testing.T) {
 	}
 
 	// Create a user with MFA enabled using a valid base32 secret
-	secret, _ := e2crypto.GenerateTOTPSecret()
+	secret, err := e2crypto.GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("generate totp secret: %v", err)
+	}
 	now := time.Now()
 	user := &User{
 		Id:         "test-id",
@@ -53,7 +58,10 @@ func TestMFAVerifySuccess(t *testing.T) {
 	}
 
 	// Generate a valid TOTP code
-	validCode := e2crypto.GenerateTOTP(secret, time.Now(), 30)
+	validCode, err := e2crypto.GenerateTOTP(secret, time.Now(), 30)
+	if err != nil {
+		t.Fatalf("generate totp: %v", err)
+	}
 
 	// Build request
 	body, _ := json.Marshal(map[string]string{"token": validCode})
@@ -73,6 +81,7 @@ func TestMFAVerifySuccess(t *testing.T) {
 }
 
 func TestMFAVerifyFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	conn := setupTestDB(t)
 
 	cfg = &routerConfig{
@@ -124,11 +133,13 @@ func TestMFAVerifyFailure(t *testing.T) {
 
 // Helper to set up test DB (mirrors e2db's test setup)
 func setupTestDB(t *testing.T) *e2db.Connect {
+	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 	cfg := &e2db.Config{
-		Driver:       "sqlite",
-		Writer:       "file::memory:?cache=shared",
-		Readers:      []string{"file::memory:?cache=shared"},
-		LoggerConfig: &e2logrus.Config{Level: "info", Format: "text"},
+		Driver:        "sqlite",
+		Writer:        dsn,
+		Readers:       []string{dsn},
+		EnableMigrate: true,
+		LoggerConfig:  &e2logrus.Config{Level: "error", Format: "text"},
 	}
 	conn, err := e2db.New(cfg)
 	if err != nil {
