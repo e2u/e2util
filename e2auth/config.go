@@ -7,15 +7,18 @@ import (
 type RouterOption func(*routerConfig)
 
 type routerConfig struct {
-	db             *gorm.DB
-	tableSchema    string
-	logger         Logger
-	emailer        Emailer
-	captchaService CAPTCHAService
-	oauthProviders OAuthProviders
-	rateLimiter    RateLimiter
-	eventNotifier  EventNotifier
-	secretKey      []byte
+	db              *gorm.DB
+	tableSchema     string
+	logger          Logger
+	emailer         Emailer
+	captchaService  CAPTCHAService
+	oauthProviders  OAuthProviders
+	rateLimiter     RateLimiter
+	eventNotifier   EventNotifier
+	secretKey       []byte
+	disablePages    bool
+	appName         string
+	useGinTemplates bool
 }
 
 func WithSecretKey(secretKey []byte) RouterOption {
@@ -68,5 +71,28 @@ func WithRateLimiter(rateLimiter RateLimiter) RouterOption {
 func WithEventNotifier(eventNotifier EventNotifier) RouterOption {
 	return func(cfg *routerConfig) {
 		cfg.eventNotifier = eventNotifier
+	}
+}
+
+// WithDisablePages skips the built-in login/register HTML pages (API-only).
+func WithDisablePages() RouterOption {
+	return func(cfg *routerConfig) {
+		cfg.disablePages = true
+	}
+}
+
+// WithAppName sets the title shown on HTML auth pages.
+func WithAppName(name string) RouterOption {
+	return func(cfg *routerConfig) {
+		cfg.appName = name
+	}
+}
+
+// WithGinTemplates renders auth pages via gin HTML templates (e2gin).
+// Put login.html, register.html, forgot.html, reset.html, account.html
+// on the engine (see TemplateFS), then c.HTML uses those names.
+func WithGinTemplates() RouterOption {
+	return func(cfg *routerConfig) {
+		cfg.useGinTemplates = true
 	}
 }

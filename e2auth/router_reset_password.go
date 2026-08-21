@@ -12,13 +12,12 @@ import (
 
 func resetPassword(c *gin.Context) {
 	var input struct {
-		Email string `json:"email" binding:"required,email"`
+		Email string `json:"email" form:"email" binding:"required,email"`
 	}
-	input.Email = strings.TrimSpace(input.Email)
-
 	if !bindInput(c, &input) {
 		return
 	}
+	input.Email = strings.TrimSpace(input.Email)
 
 	user, err := retrieveUser(cfg, input.Email, "")
 	if user == nil || err != nil {
@@ -29,11 +28,12 @@ func resetPassword(c *gin.Context) {
 	token, err := generateRecoverToken(uuid.NewV4().String(), user.Id, durationRecover, cfg)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
+		return
 	}
 
+	_ = deleteResetTokensForUser(user.Id)
 	resetPasswordToken := &PasswordResetToken{
 		UserId:    user.Id,
-		User:      user,
 		Token:     token,
 		ExpiresAt: time.Now().Add(durationRecover),
 	}
@@ -44,8 +44,9 @@ func resetPassword(c *gin.Context) {
 	}
 
 	data := map[string]any{
-		"duration_minute": durationRecover.Minutes,
+		"duration_minute": durationRecover.Minutes(),
 		"token":           token,
+		"reset_url":       "/auth/reset-password?token=" + token,
 		"user":            gin.H{"id": user.Id, "name": user.Name, "email": user.Email},
 	}
 
@@ -53,13 +54,16 @@ func resetPassword(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}
-	c.JSON(http.StatusOK, successResp(data))
+	if redirectHTML(c, "/auth/login?notice=reset_sent") {
+		return
+	}
+	c.JSON(http.StatusOK, successResp(nil))
 }
 
 func resetPasswordConfirm(c *gin.Context) {
 	var input struct {
-		Token    string `json:"token" binding:"required"`
-		Password string `json:"password" binding:"required,min=8"`
+		Token    string `json:"token" form:"token" binding:"required"`
+		Password string `json:"password" form:"password" binding:"required,min=8"`
 	}
 
 	if !bindInput(c, &input) {
@@ -75,11 +79,11 @@ func resetPasswordConfirm(c *gin.Context) {
 
 	passwordToken, err := getResetPasswordToken(input.Token)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
+		c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeInvalidToken, "Invalid token"))
 		return
 	}
-	if passwordToken.Token != input.Token {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeInvalidToken, "Invalid token"))
+	if passwordToken.Token != input.Token || time.Now().After(passwordToken.ExpiresAt) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, errResp(ErrCodeInvalidToken, "Invalid or expired token"))
 		return
 	}
 
@@ -97,6 +101,10 @@ func resetPasswordConfirm(c *gin.Context) {
 
 	if err = updateUserPassword(user.Id, hashedPassword); err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
+		return
+	}
+	_ = deleteResetTokensForUser(user.Id)
+	if redirectHTML(c, "/auth/login?notice=password_updated") {
 		return
 	}
 	c.JSON(http.StatusOK, successResp(nil))

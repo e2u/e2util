@@ -19,8 +19,10 @@ const (
 	ErrCodeInternalServerError ErrCode = "internal_server_error"
 	ErrCodeUnauthorized        ErrCode = "unauthorized"
 	// ErrCodeInvalidCSRFToken    ErrCode = "invalid_csrf_token"
-	ErrCodeInvalidToken ErrCode = "invalid_token"
-	ErrCodeForbidden    ErrCode = "forbidden"
+	ErrCodeInvalidToken  ErrCode = "invalid_token"
+	ErrCodeForbidden     ErrCode = "forbidden"
+	ErrCodeMFARequired   ErrCode = "mfa_required"
+	ErrCodeAccountLocked ErrCode = "account_locked"
 )
 
 type StatusCode string
@@ -40,6 +42,9 @@ const (
 	durationSession     = time.Hour * 24 * 30
 	durationSessionLong = time.Hour * 24 * 365
 	durationRecover     = time.Minute * 15
+	durationEmailVerify = time.Minute * 15
+	durationLock        = time.Minute * 15
+	maxLoginFailures    = 5
 	// durationCSRF        = time.Hour * 24
 )
 
@@ -48,5 +53,9 @@ const (
 )
 
 const (
-	ctxKeyUserId = "e2auth/user_id" // namespaced to avoid collisions with other packages
+	ctxKeyUserId    = "e2auth/user_id" // namespaced to avoid collisions with other packages
+	ctxKeySessionId = "e2auth/session_id"
+	issuerUnlock    = "unlock"
+	sessionCookie   = "e2auth_session"
+	langCookie      = "e2auth_lang"
 )

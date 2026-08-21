@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{.HTMLLang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+</head>
+<body>
+<main>
+  <p>
+    <a href="{{.LangURLZH}}"{{if eq .Lang "zh"}} aria-current="page"{{end}}>中文</a>
+    ·
+    <a href="{{.LangURLEN}}"{{if eq .Lang "en"}} aria-current="page"{{end}}>English</a>
+  </p>
+  <h1>{{.AppName}}</h1>
+  <p>{{.T.Account}}</p>
+  {{if .User}}
+  <p><strong>{{.User.Name}}</strong></p>
+  <p>{{.User.Email}}</p>
+  <p>ID: {{.User.Id}}</p>
+  {{end}}
+  <p><a href="/auth/logout">{{.T.SignOut}}</a></p>
+  <nav><a href="/">{{.T.BackToApp}}</a></nav>
+</main>
+</body>
+</html>

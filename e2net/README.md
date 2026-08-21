@@ -1,22 +1,20 @@
 # e2net
 
-## Overview
-`e2net` provides network utilities such as address parsing, TCP/UDP helper functions, and connectivity checks.
+網路工具的命名空間。代理檢測見子套件 [`proxychecker`](proxychecker)。
 
-## Installation
+Namespace for network helpers. Proxy checks live in [`proxychecker`](proxychecker).
+
+## 安裝 / Installation
+
 ```bash
-go get github.com/e2u/e2util/e2net
+go get github.com/e2u/e2util/e2net/proxychecker
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2net"
+import "github.com/e2u/e2util/e2net/proxychecker"
 
-addr, _ := e2net.ParseIPPort("localhost:8080")
+resp := proxychecker.CheckProxy(ctx, "socks5://127.0.0.1:9050",
+    proxychecker.DefaultRequest("https://example.com/"))
 ```
-
-## Examples
-*Demonstrate checking port availability.*
-
-## API Reference
-*Exported functions and types.*

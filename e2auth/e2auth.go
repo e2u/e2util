@@ -7,13 +7,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 )
 
 var cfg *routerConfig
 
-func RegisterRouters(router *gin.RouterGroup, db *gorm.DB, opts ...RouterOption) {
-	cfg = &routerConfig{
+func authModels() []any {
+	return []any{&User{}, &PasswordResetToken{}, &OTPRecoveryCode{}, &Session{}, &OAuth2Token{}, &Configuration{}}
+}
+
+func newRouterConfig(db *gorm.DB, opts ...RouterOption) *routerConfig {
+	c := &routerConfig{
 		db:             db,
 		tableSchema:    "e2auth",
 		logger:         &noopLogger{},
@@ -23,32 +26,39 @@ func RegisterRouters(router *gin.RouterGroup, db *gorm.DB, opts ...RouterOption)
 		rateLimiter:    &noopRateLimiter{},
 		eventNotifier:  &noopEventNotifier{},
 		secretKey:      []byte("secret key"),
+		appName:        "Account",
 	}
-
 	for _, opt := range opts {
-		opt(cfg)
+		opt(c)
 	}
+	return c
+}
 
+func migrateAuthTables(db *gorm.DB) {
+	if db.Name() == "postgres" && cfg != nil && cfg.tableSchema != "" {
+		if err := db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", cfg.tableSchema)).Error; err != nil {
+			logrus.WithField("model", "e2auth").Warnf("create schema %s: %v", cfg.tableSchema, err)
+		}
+	}
+	for _, table := range authModels() {
+		if err := db.AutoMigrate(table); err != nil {
+			logrus.WithField("model", "e2auth").Errorf("register model failed: %v", err)
+		}
+	}
+}
+
+// RegisterRouters mounts /auth onto a Gin router using a Gorm DB.
+// Prefer Register (e2db) or Mount (e2app) when wiring a full application.
+func RegisterRouters(router gin.IRouter, db *gorm.DB, opts ...RouterOption) {
+	cfg = newRouterConfig(db, opts...)
 	if cfg.db == nil {
 		panic("e2auth: register router failed: db is nil")
 	}
+	migrateAuthTables(cfg.db)
+	registerAuthRoutes(router)
+}
 
-	tables := []schema.Tabler{&User{}, &PasswordResetToken{}, &OTPRecoveryCode{}, &Session{}, &OAuth2Token{}}
-	if cfg.db.Name() == "postgres" {
-		cfg.db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", cfg.tableSchema))
-		for _, table := range tables {
-			if err := cfg.db.Table(fmt.Sprintf("%s.%s", cfg.tableSchema, table.TableName())).AutoMigrate(table); err != nil {
-				logrus.WithField("model", "e2auth").Errorf("register model failed: %v", err)
-			}
-		}
-	} else {
-		for _, table := range tables {
-			if err := cfg.db.Table(fmt.Sprintf("%s_%s", cfg.tableSchema, table.TableName())).AutoMigrate(table); err != nil {
-				logrus.WithField("model", "e2auth").Errorf("register model failed: %v", err)
-			}
-		}
-	}
-
+func registerAuthRoutes(router gin.IRouter) {
 	auth := router.Group("/auth")
 	auth.Use(loggingMiddleware(cfg.logger))
 	{
@@ -61,6 +71,13 @@ func RegisterRouters(router *gin.RouterGroup, db *gorm.DB, opts ...RouterOption)
 		auth.GET("/oauth/:provider", oauthProvider)
 		auth.GET("/oauth/:provider/callback", oauthCallback)
 		auth.POST("/captcha/verify", captchaVerify)
+		if cfg == nil || !cfg.disablePages {
+			auth.GET("/login", pageLogin)
+			auth.GET("/register", pageRegister)
+			auth.GET("/forgot-password", pageForgot)
+			auth.GET("/reset-password", pageReset)
+			auth.GET("/account", pageAccount)
+		}
 	}
 
 	protected := auth.Group("")

@@ -1,23 +1,23 @@
 # e2regexp
 
-## Overview
-`e2regexp` offers helper functions for working with regular expressions, including compiled caches and safe matching utilities.
+用命名捕捉組把 `FindStringSubmatch` 結果收成 `e2map.Map`。
 
-## Installation
+Named capture groups from `FindStringSubmatch` into an `e2map.Map`.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2regexp
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2regexp"
+import (
+    "regexp"
+    "github.com/e2u/e2util/e2regexp"
+)
 
-re := e2regexp.MustCompile(`^a.*b$`)
-matched := re.MatchString("abc")
+re := regexp.MustCompile(`(?P<area>\d{3})-(?P<line>\d{4})`)
+m, ok := e2regexp.NamedFindStringSubmatch("202-0147", re)
 ```
-
-## Examples
-*Show using compiled regex with caching.*
-
-## API Reference
-*Exported functions and types.*

@@ -1,23 +1,26 @@
 # e2sign
 
-## Overview
-`e2sign` implements digital signature utilities, including RSA/ECDSA signing and verification helpers.
+把 OS 訊號對應到回呼，在背景 goroutine 裡處理。
 
-## Installation
+Map OS signals to callbacks and handle them in a background goroutine.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2sign
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2sign"
+import (
+    "os"
+    "syscall"
+    "github.com/e2u/e2util/e2sign"
+)
 
-sig, _ := e2sign.SignMessage(privateKey, []byte("data"))
-valid := e2sign.VerifySignature(publicKey, []byte("data"), sig)
+e2sign.RegisterSignTask(map[os.Signal]func(){
+    syscall.SIGTERM: func() { shutdown() },
+    syscall.SIGINT:  func() { shutdown() },
+})
 ```
-
-## Examples
-*Show signing and verifying a message using RSA keys.*
-
-## API Reference
-*Exported functions and types.*

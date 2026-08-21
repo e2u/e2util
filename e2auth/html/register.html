@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="{{.HTMLLang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+</head>
+<body>
+<main>
+  <p>
+    <a href="{{.LangURLZH}}"{{if eq .Lang "zh"}} aria-current="page"{{end}}>中文</a>
+    ·
+    <a href="{{.LangURLEN}}"{{if eq .Lang "en"}} aria-current="page"{{end}}>English</a>
+  </p>
+  <h1>{{.AppName}}</h1>
+  <p>{{.T.Register}}</p>
+  {{if .Error}}<p>{{.Error}}</p>{{end}}
+  <form method="post" action="/auth/register">
+    <label for="username">{{.T.Username}}</label>
+    <input id="username" name="username" required minlength="3" autocomplete="username">
+    <label for="email">{{.T.Email}}</label>
+    <input id="email" name="email" type="email" required autocomplete="email">
+    <label for="password">{{.T.Password}}</label>
+    <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
+    <p>{{.T.PasswordHint}}</p>
+    <button type="submit">{{.T.SubmitRegister}}</button>
+  </form>
+  <nav><a href="/auth/login">{{.T.HaveAccount}}</a></nav>
+</main>
+</body>
+</html>

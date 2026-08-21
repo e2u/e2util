@@ -2,6 +2,7 @@ package e2auth
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,7 +65,7 @@ func getSessions(c *gin.Context) {
 		return
 	}
 	var sessions []Session
-	if err = cfg.db.Model(&Session{}).Where("user_id = ?", user.Id).Find(&sessions).Error; err != nil {
+	if err = cfg.db.Model(&Session{}).Where("user_id = ? AND revoked = ?", user.Id, false).Find(&sessions).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}
@@ -77,7 +78,11 @@ func deleteSession(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidInput, "missing session id"))
 		return
 	}
-	if err := revokeSession(sessionID); err != nil {
+	user, err := getCtxUserOrAbort(c)
+	if err != nil {
+		return
+	}
+	if err := revokeSessionForUser(sessionID, user.Id); err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}
@@ -159,7 +164,8 @@ func searchUsers(c *gin.Context) {
 		return
 	}
 	var users []User
-	if err := cfg.db.Where("name ILIKE ? OR email ILIKE ?", "%"+query+"%", "%"+query+"%").Find(&users).Error; err != nil {
+	q := "%" + strings.ToLower(query) + "%"
+	if err := cfg.db.Where("LOWER(name) LIKE ? OR LOWER(email) LIKE ?", q, q).Find(&users).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}

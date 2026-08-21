@@ -115,7 +115,7 @@ func changeEmailConfirm(c *gin.Context) {
 		return
 	}
 
-	if strings.EqualFold(user.Email, subject.CurrentEmail) {
+	if !strings.EqualFold(user.Email, subject.CurrentEmail) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidInput, "The current email does not match"))
 		return
 	}
@@ -125,9 +125,10 @@ func changeEmailConfirm(c *gin.Context) {
 		return
 	}
 
-	if err = updateUserEmail(user.Id, subject.CurrentEmail); err != nil {
+	if err = updateUserEmail(user.Id, subject.NewEmail); err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
 		return
 	}
+	_ = cfg.db.Model(&User{}).Where("id = ?", user.Id).Update("email_verified", true).Error
 	c.JSON(http.StatusOK, successResp(nil))
 }

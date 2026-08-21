@@ -1,22 +1,25 @@
 # e2struct
 
-## Overview
-`e2struct` provides utilities for working with Go structs, including reflection helpers, field copying, and tagging utilities.
+遞迴處理 struct：trim 字串欄位，並把 nil 的 struct 指標初始化。
 
-## Installation
+Recursively trim string fields and initialize nil struct pointers.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2struct
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
 import "github.com/e2u/e2util/e2struct"
 
-copy := e2struct.CopyStruct(src, dst)
+type In struct {
+    Name  string
+    Child *In
+}
+v := &In{Name: "  ada  "}
+e2struct.PrepareStruct(v)
+// v.Name == "ada", v.Child != nil
 ```
-
-## Examples
-*Show copying struct fields with reflection.*
-
-## API Reference
-*Exported functions and types.*

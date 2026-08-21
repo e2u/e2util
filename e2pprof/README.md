@@ -1,23 +1,23 @@
 # e2pprof
 
-## Overview
-`e2pprof` provides utilities for integrating Go's pprof profiling into services, including HTTP handlers and custom profiling controls.
+在 `127.0.0.1` 隨機埠啟動 `net/http/pprof`，埠號寫進 log。
 
-## Installation
+Start `net/http/pprof` on a random `127.0.0.1` port; the port is logged.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2pprof
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2pprof"
+import (
+    "context"
+    "github.com/e2u/e2util/e2pprof"
+)
 
-router := gin.New()
-e2pprof.Register(router)
+e2pprof.Init(context.Background())
+// 日誌會出現 http://127.0.0.1:<port>/debug/pprof
 ```
-
-## Examples
-*Show enabling CPU and memory profiling via HTTP endpoints.*
-
-## API Reference
-*Exported functions and types.*

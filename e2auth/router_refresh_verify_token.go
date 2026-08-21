@@ -51,6 +51,24 @@ func refreshToken(c *gin.Context) {
 }
 
 func verifyToken(c *gin.Context) {
-	// Placeholder: Implement token verification logic using cfg.sessoiner
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Verify token not implemented"})
+	user, err := getCtxUserOrAbort(c)
+	if err != nil {
+		return
+	}
+	sessionID, _ := c.Get(ctxKeySessionId)
+	data := gin.H{
+		"valid": true,
+		"user": gin.H{
+			"id":             user.Id,
+			"name":           user.Name,
+			"email":          user.Email,
+			"roles":          user.Roles,
+			"email_verified": user.EmailVerified,
+			"otp_enable":     user.OTPEnable,
+		},
+	}
+	if sid, ok := sessionID.(string); ok && sid != "" {
+		data["session_id"] = sid
+	}
+	c.JSON(http.StatusOK, successResp(data))
 }

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{.HTMLLang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+</head>
+<body>
+<main>
+  <p>
+    <a href="{{.LangURLZH}}"{{if eq .Lang "zh"}} aria-current="page"{{end}}>中文</a>
+    ·
+    <a href="{{.LangURLEN}}"{{if eq .Lang "en"}} aria-current="page"{{end}}>English</a>
+  </p>
+  <h1>{{.AppName}}</h1>
+  <p>{{.T.ResetPassword}}</p>
+  {{if .Error}}<p>{{.Error}}</p>{{end}}
+  <form method="post" action="/auth/reset-password">
+    <label for="email">{{.T.Email}}</label>
+    <input id="email" name="email" type="email" required autocomplete="email">
+    <button type="submit">{{.T.SendReset}}</button>
+  </form>
+  <nav><a href="/auth/login">{{.T.BackToSignIn}}</a></nav>
+</main>
+</body>
+</html>

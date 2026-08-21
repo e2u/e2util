@@ -1,29 +1,45 @@
 # e2app
 
-## Overview
-The `e2app` module provides utilities for application configuration and context management. It supports loading configuration from environment variables, command‑line flags, or configuration files (e.g., TOML) and integrates with other `e2util` modules such as `e2db`, `e2cache`, `e2http`, and `e2logrus`.
+載入 TOML／環境變數／命令列，組出帶 DB、快取、HTTP、日誌的應用 `Context`。
 
-## Installation
+Loads TOML, env, and flags into an application `Context` with DB, cache, HTTP, and logger.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2app
 ```
 
-## Usage
-```go
-import "github.com/e2u/e2util/e2app"
+## 功能 / Features
 
-// Example: load configuration
-cfg, err := e2app.LoadConfig()
-if err != nil {
-    // handle error
+- **設定來源 / Config sources**：`--config` 檔、embed.FS（如 `dev.toml`）、`.` / `etc` / `conf` 等路徑
+- **組件 / Wiring**：`e2db`、`e2cache`、`e2http.Config`、`e2logrus`
+- **AppConfig**：`Get` / `GetString` / `GetInt` / `GetStringSlice` / `GetBytesFromBase64`
+
+Postgres 不可用時，依賴資料庫的測試會 skip。
+
+Tests that need Postgres skip when it is unavailable.
+
+## 用法 / Usage
+
+```go
+import (
+    "context"
+    "embed"
+    "github.com/e2u/e2util/e2app"
+)
+
+//go:embed *.toml
+var cfgFS embed.FS
+
+func main() {
+    ctx := e2app.New(context.Background(), cfgFS)
+    _ = ctx.DB
+    _ = ctx.Cache
+    _ = ctx.App.GetString("secret_key")
 }
 ```
 
-## Examples
-* Loading configuration from a TOML file.
-* Overriding configuration via environment variables.
+認證模組見 [`e2auth.Mount`](../e2auth)：把 `e2app` 嘅 DB 同 `secret_key` 交給 `e2gin` 引擎。
 
-## API Reference
-* `LoadConfig() (*Config, error)` – Load configuration.
-* `Config` – struct representing the application configuration.
-* Additional helper functions and types are documented in the GoDoc.
+For login/register, see [`e2auth.Mount`](../e2auth) — it takes this `Context` and an `e2gin` engine.

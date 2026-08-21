@@ -12,18 +12,18 @@ import (
 
 func register(c *gin.Context) {
 	var input struct {
-		Username string `json:"username" binding:"omitempty,min=3"`
-		Password string `json:"password" binding:"omitempty,min=8"`
-		Email    string `json:"email" binding:"omitempty,email"`
+		Username string `json:"username" form:"username" binding:"omitempty,min=3"`
+		Password string `json:"password" form:"password" binding:"omitempty,min=8"`
+		Email    string `json:"email" form:"email" binding:"omitempty,email"`
+	}
+
+	if !bindInput(c, &input) {
+		return
 	}
 
 	input.Password = strings.TrimSpace(input.Password)
 	input.Email = strings.TrimSpace(input.Email)
 	input.Username = strings.TrimSpace(input.Username)
-
-	if !bindInput(c, &input) {
-		return
-	}
 
 	if !isValidPassword(input.Password) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidPassword, msgPasswordRule))
@@ -38,14 +38,17 @@ func register(c *gin.Context) {
 	if err != nil {
 		cfg.logger.Warnf("Failed to hash password: %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, errResp(ErrCodeInternalServerError, err))
+		return
 	}
 
+	id := uuid.NewV4().String()
 	newUser := &User{
-		Id:            uuid.NewV4().String(),
+		Id:            id,
 		Name:          input.Username,
 		Email:         input.Email,
 		EmailVerified: false,
 		PasswordHash:  hashedPassword,
+		ExternalID:    "local:" + id,
 	}
 	err = createUser(newUser)
 	if err != nil {
@@ -58,6 +61,9 @@ func register(c *gin.Context) {
 			"name":  newUser.Name,
 			"email": newUser.Email,
 		},
+	}
+	if redirectHTML(c, "/auth/login?notice=registered") {
+		return
 	}
 	c.JSON(http.StatusOK, successResp(data))
 }

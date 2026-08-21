@@ -2,9 +2,11 @@
 
 `e2gin` 是 `e2util` 的 Web 框架增强包，基于 [Gin](https://github.com/gin-gonic/gin) 提供了一套完整的 Web 应用开发工具，支持 SPA/非 SPA 应用、静态文件服务、动态模板渲染等功能。
 
+`e2gin` is a Gin-based web helper: SPA or multi-page static files, HTML template hot reload, health/pprof, gzip, and structured JSON responses. Subpackages: `component` (pagination), `middlewares`, `req`, `resp`.
+
 ---
 
-## 安装
+## 安装 / Installation
 
 ```bash
 go get github.com/e2u/e2util/e2gin
@@ -12,9 +14,9 @@ go get github.com/e2u/e2util/e2gin
 
 ---
 
-## 快速开始
+## 快速开始 / Quick start
 
-### 基础用法
+### 基础用法 / Basic usage
 
 ```go
 package main
@@ -44,9 +46,9 @@ func main() {
 
 ---
 
-## 核心功能
+## 核心功能 / Features
 
-### 1. 静态文件服务
+### 1. 静态文件服务 / Static files
 
 支持 SPA（单页应用）和非 SPA 应用的路由处理：
 
@@ -79,9 +81,9 @@ opt := &e2gin.Option{
 
 ---
 
-### 2. SPA vs 非 SPA 配置
+### 2. SPA vs 非 SPA 配置 / SPA vs multi-page
 
-#### SPA 应用（React/Vue/Angular）
+#### SPA 应用（React/Vue/Angular） / SPA apps
 
 ```go
 // 项目结构：static/index.html (SPA 入口)
@@ -97,7 +99,7 @@ opt := &e2gin.Option{
 // /login, /dashboard 等路径都会返回 index.html
 ```
 
-#### 非 SPA 应用（多页 HTML）
+#### 非 SPA 应用（多页 HTML） / Multi-page HTML
 
 ```go
 // 项目结构：
@@ -120,7 +122,7 @@ opt := &e2gin.Option{
 // / → index.html
 ```
 
-#### 混合应用
+#### 混合应用 / Mixed apps
 
 ```go
 // 部分页面独立 HTML，部分使用 SPA
@@ -138,7 +140,7 @@ opt := &e2gin.Option{
 
 ---
 
-### 3. 动态模板渲染
+### 3. 动态模板渲染 / Dynamic templates
 
 支持模板热重载（开发模式）和 HTML 压缩：
 
@@ -171,7 +173,7 @@ eng.GET("/", func(c *gin.Context) {
 
 ---
 
-### 4. 配置选项
+### 4. 配置选项 / Options
 
 ```go
 type Option struct {
@@ -193,7 +195,7 @@ type Option struct {
 
 ---
 
-### 5. 完整示例
+### 5. 完整示例 / Full example
 
 ```go
 package main
@@ -270,7 +272,7 @@ func main() {
 
 ---
 
-## 测试
+## 测试 / Tests
 
 运行包内所有测试：
 
@@ -290,7 +292,7 @@ go test ./e2gin/component/...
 
 ---
 
-## 安全特性
+## 安全特性 / Security
 
 - **路径遍历防护**：自动拒绝包含 `..` 的请求路径
 - **空字节注入防护**：拒绝包含空字节的请求
@@ -304,7 +306,7 @@ eng.Use(middlewares.DefaultSecurityHeaders())
 
 ---
 
-## 开发模式 vs 生产模式
+## 开发模式 vs 生产模式 / Dev vs release
 
 | 功能 | 开发模式 (`debug`) | 生产模式 (`release`) |
 |------|-------------------|---------------------|
@@ -326,7 +328,7 @@ gin.SetMode(gin.ReleaseMode)
 
 ---
 
-## 依赖
+## 依赖 / Dependencies
 
 - [gin-gonic/gin](https://github.com/gin-gonic/gin) - Web 框架
 - [sirupsen/logrus](https://github.com/sirupsen/logrus) - 日志

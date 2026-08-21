@@ -1,23 +1,31 @@
 # e2time
 
-## Overview
-`e2time` offers time‑related helper functions, such as parsing, formatting, duration calculations, and clock abstractions for testing.
+日期解析、當日零點、加減日、時間指標、隨機 sleep。
 
-## Installation
+Date parse, start of today, add days, time pointer, random sleep.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2time
 ```
 
-## Usage
+## 功能 / Features
+
+- `MustParse`：失敗回傳 zero time
+- `ToDay`、`AddDay`
+- `TimePointer`
+- `SleepRandom(min, max)`（含兩端）
+
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2time"
+import (
+    "time"
+    "github.com/e2u/e2util/e2time"
+)
 
-now := e2time.Now()
-formatted := now.Format(time.RFC3339)
+t := e2time.MustParse("2006-01-02", "2024-05-01")
+next := e2time.AddDay(e2time.ToDay(), 1)
+p := e2time.TimePointer(t)
 ```
-
-## Examples
-*Show parsing ISO8601 dates and using a mock clock.*
-
-## API Reference
-*Exported functions and types.*

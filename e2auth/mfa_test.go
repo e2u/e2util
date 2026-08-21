@@ -145,7 +145,7 @@ func setupTestDB(t *testing.T) *e2db.Connect {
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
 	}
-	if err := conn.AutoMigrate(context.Background(), &User{}, &Session{}, &PasswordResetToken{}, &OTPRecoveryCode{}, &OAuth2Token{}); err != nil {
+	if err := conn.AutoMigrate(context.Background(), &User{}, &Session{}, &PasswordResetToken{}, &OTPRecoveryCode{}, &OAuth2Token{}, &Configuration{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 	return conn

@@ -14,17 +14,21 @@ type SessionSubject struct {
 
 type User struct {
 	e2db.Model
-	Id              string    `gorm:"column:id;type:uuid;unique;index" json:"id"`
-	Name            string    `gorm:"column:name;unique;index" json:"name"`
-	Email           string    `gorm:"column:email;index;unique;not null" json:"email"`
-	EmailVerified   bool      `gorm:"column:email_verified;default:false" json:"email_verified"`
-	PasswordHash    []byte    `gorm:"column:password_hash" json:"-"`
-	Roles           []string  `gorm:"column:roles;index;type:text[]" json:"roles"`
-	OTPEnable       bool      `gorm:"column:otp_enable;default:false" json:"otp_enable"`
-	OTPSecret       string    `gorm:"column:otp_secret;" json:"otp_secret"`
-	LastLogin       time.Time `gorm:"column:last_login" json:"last_login"`
-	OAuth2Providers []string  `gorm:"column:oauth2_providers;index;type:text[]" json:"oauth2_providers"`
-	ExternalID      string    `gorm:"column:external_id;index;unique;not null" json:"external_id"`
+	Id                   string     `gorm:"column:id;type:uuid;unique;index" json:"id"`
+	Name                 string     `gorm:"column:name;unique;index" json:"name"`
+	Email                string     `gorm:"column:email;index;unique;not null" json:"email"`
+	EmailVerified        bool       `gorm:"column:email_verified;default:false" json:"email_verified"`
+	EmailVerifyCode      string     `gorm:"column:email_verify_code" json:"-"`
+	EmailVerifyExpiresAt time.Time  `gorm:"column:email_verify_expires_at" json:"-"`
+	PasswordHash         []byte     `gorm:"column:password_hash" json:"-"`
+	Roles                []string   `gorm:"column:roles;index;type:text[]" json:"roles"`
+	OTPEnable            bool       `gorm:"column:otp_enable;default:false" json:"otp_enable"`
+	OTPSecret            string     `gorm:"column:otp_secret;" json:"-"`
+	LastLogin            time.Time  `gorm:"column:last_login" json:"last_login"`
+	FailedLoginAttempts  int        `gorm:"column:failed_login_attempts;default:0" json:"-"`
+	LockedUntil          *time.Time `gorm:"column:locked_until" json:"-"`
+	OAuth2Providers      []string   `gorm:"column:oauth2_providers;index;type:text[]" json:"oauth2_providers"`
+	ExternalID           string     `gorm:"column:external_id;index" json:"external_id"`
 }
 
 func (u *User) Sanitize() {
@@ -40,9 +44,9 @@ func (u *User) TableName() string {
 type PasswordResetToken struct {
 	e2db.Model
 	UserId    string    `gorm:"column:user_id;type:uuid;unique;index" json:"user_id"`
-	User      *User     `gorm:"foreignKey:UserId" json:"user"`
+	User      *User     `gorm:"foreignKey:UserId;references:Id" json:"user"`
 	Token     string    `gorm:"column:token;type:text;not null;unique;index" json:"token"`
-	ExpiresAt time.Time `gorm:"column:expires_at;type:timestamptz" json:"expires_at"`
+	ExpiresAt time.Time `gorm:"column:expires_at" json:"expires_at"`
 }
 
 func (pr *PasswordResetToken) Sanitize() {
@@ -56,9 +60,9 @@ func (pr *PasswordResetToken) TableName() string {
 
 type OTPRecoveryCode struct {
 	e2db.Model
-	UserId string `gorm:"column:user_id;type:uuid;unique;index" json:"user_id"`
-	User   *User  `gorm:"foreignKey:UserId" json:"user"`
-	Code   string `gorm:"column:code;not null;unique" json:"code"`
+	UserId string `gorm:"column:user_id;type:uuid;index" json:"user_id"`
+	User   *User  `gorm:"foreignKey:UserId;references:Id" json:"user"`
+	Code   string `gorm:"column:code;not null;index" json:"-"`
 	Used   bool   `gorm:"column:used;not null;default:false" json:"used"`
 }
 
@@ -69,10 +73,10 @@ func (or *OTPRecoveryCode) TableName() string {
 type Session struct {
 	e2db.Model
 	SessionId string    `gorm:"column:session_id;type:uuid;unique;index" json:"session_id"`
-	UserId    string    `gorm:"column:user_id;type:uuid;unique;index" json:"user_id"`
-	User      *User     `gorm:"foreignKey:UserId" json:"user"`
+	UserId    string    `gorm:"column:user_id;type:uuid;index" json:"user_id"`
+	User      *User     `gorm:"foreignKey:UserId;references:Id" json:"user"`
 	Token     string    `gorm:"column:token;not null;unique;index" json:"token"`
-	ExpiresAt time.Time `gorm:"column:expires_at;type:timestamptz" json:"expires_at"`
+	ExpiresAt time.Time `gorm:"column:expires_at" json:"expires_at"`
 	Revoked   bool      `gorm:"column:revoked;default:false" json:"revoked"`
 	IPAddress string    `gorm:"column:ip_address;" json:"ip_address"`
 }
@@ -82,12 +86,13 @@ func (sr *Session) TableName() string {
 }
 
 type OAuth2Token struct {
-	UserId       string    `gorm:"column:user_id;type:uuid;unique;index" json:"user_id"`
-	User         *User     `gorm:"foreignKey:UserId" json:"user"`
-	Provider     string    `gorm:"column:provider;" json:"provider"`
-	AccessToken  string    `gorm:"column:access_token;not null" json:"access_token"`
-	RefreshToken string    `gorm:"column:refresh_token;" json:"refresh_token"`
-	ExpiresAt    time.Time `gorm:"column:expires_at;type:timestamptz" json:"expires_at"`
+	e2db.Model
+	UserId       string    `gorm:"column:user_id;type:uuid;uniqueIndex:uidx_oauth_user_provider" json:"user_id"`
+	User         *User     `gorm:"foreignKey:UserId;references:Id" json:"user"`
+	Provider     string    `gorm:"column:provider;uniqueIndex:uidx_oauth_user_provider" json:"provider"`
+	AccessToken  string    `gorm:"column:access_token;not null" json:"-"`
+	RefreshToken string    `gorm:"column:refresh_token;" json:"-"`
+	ExpiresAt    time.Time `gorm:"column:expires_at" json:"expires_at"`
 }
 
 func (otr *OAuth2Token) TableName() string {

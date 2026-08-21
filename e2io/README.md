@@ -1,22 +1,28 @@
 # e2io
 
-## Overview
-`e2io` provides I/O helpers, including file reading/writing, temporary directory management, and stream utilities.
+讀取 Reader／檔案的 Must 輔助，以及目錄 fsnotify 監看（含 debounce）。
 
-## Installation
+Must-style readers plus fsnotify directory watching with debounce.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2io
 ```
 
-## Usage
+## 功能 / Features
+
+- **讀取 / Read**：`MustReadAll`、`MustReadAllAsString`、`MustReadAllAndClose`、`MustReadFile`
+- **監看 / Watch**：`WatchDir`（阻塞迴圈，於 goroutine 呼叫）
+
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2io"
+import (
+    "strings"
+    "github.com/e2u/e2util/e2io"
+)
 
-data, err := e2io.ReadFile("path/to/file.txt")
+b := e2io.MustReadAll(strings.NewReader("hello"))
+s := e2io.MustReadFile("config.toml")
 ```
-
-## Examples
-*Show reading a config file and handling errors.*
-
-## API Reference
-*List exported functions and types.*

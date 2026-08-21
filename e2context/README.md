@@ -1,22 +1,23 @@
 # e2context
 
-## Overview
-The `e2context` package offers utilities for managing request‑scoped contexts, cancellation, and value propagation.
+檢查 `context` 是否仍有效，然後呼叫 cancel 並確認已取消。
 
-## Installation
+Check whether a context is still active, then cancel it and confirm.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2context
 ```
 
-## Usage
+## 用法 / Usage
+
 ```go
-import "github.com/e2u/e2util/e2context"
+import (
+    "context"
+    "github.com/e2u/e2util/e2context"
+)
 
-ctx := e2context.WithValue(context.Background(), "key", "value")
+ctx, cancel := context.WithCancel(context.Background())
+e2context.CheckAndCancelContext(ctx, cancel)
 ```
-
-## Examples
-*Show usage of context cancellation and timeout helpers.*
-
-## API Reference
-*List exported symbols.*

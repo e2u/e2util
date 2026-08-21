@@ -3,6 +3,7 @@ package e2auth
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -48,11 +49,101 @@ func strTrimEqual(a, b string) bool {
 }
 
 func bindInput(c *gin.Context, t any) bool {
-	if err := c.ShouldBindJSON(&t); err != nil {
+	var err error
+	if strings.Contains(c.ContentType(), "json") {
+		err = c.ShouldBindJSON(t)
+	} else {
+		err = c.ShouldBind(t)
+	}
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errResp(ErrCodeInvalidInput, err))
 		return false
 	}
 	return true
+}
+
+func requestSessionToken(c *gin.Context) string {
+	token := strings.TrimSpace(c.GetHeader("Authorization"))
+	token = strings.TrimPrefix(token, "Bearer ")
+	token = strings.TrimSpace(token)
+	if token != "" {
+		return token
+	}
+	cookie, _ := c.Cookie(sessionCookie)
+	return strings.TrimSpace(cookie)
+}
+
+func wantsHTML(c *gin.Context) bool {
+	return strings.Contains(c.GetHeader("Accept"), "text/html")
+}
+
+func isJSONRequest(c *gin.Context) bool {
+	return strings.Contains(c.ContentType(), "json")
+}
+
+func safeNext(vals ...string) string {
+	for _, v := range vals {
+		v = strings.TrimSpace(v)
+		if strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "//") {
+			return v
+		}
+	}
+	return "/"
+}
+
+func setSessionCookie(c *gin.Context, token string, expiresAt time.Time) {
+	maxAge := int(time.Until(expiresAt).Seconds())
+	if maxAge < 1 {
+		maxAge = 1
+	}
+	secure := c.Request.TLS != nil
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(sessionCookie, token, maxAge, "/", "", secure, true)
+}
+
+func clearSessionCookie(c *gin.Context) {
+	secure := c.Request.TLS != nil
+	c.SetCookie(sessionCookie, "", -1, "/", "", secure, true)
+}
+
+func writeAuthSuccess(c *gin.Context, token string, expiresAt time.Time, user *User) {
+	setSessionCookie(c, token, expiresAt)
+	data := gin.H{
+		"token":      token,
+		"expires_at": expiresAt,
+		"user": gin.H{
+			"id":    user.Id,
+			"name":  user.Name,
+			"email": user.Email,
+		},
+	}
+	if wantsHTML(c) && !isJSONRequest(c) {
+		c.Redirect(http.StatusSeeOther, safeNext(c.Query("next"), c.PostForm("next")))
+		return
+	}
+	c.JSON(http.StatusOK, successResp(data))
+}
+
+func redirectHTML(c *gin.Context, location string) bool {
+	if wantsHTML(c) && !isJSONRequest(c) {
+		c.Redirect(http.StatusSeeOther, location)
+		return true
+	}
+	return false
+}
+
+func abortUnauthorized(c *gin.Context, code ErrCode, message any) {
+	if wantsHTML(c) && c.Request.Method == http.MethodGet {
+		next := url.QueryEscape(c.Request.URL.RequestURI())
+		c.Redirect(http.StatusFound, "/auth/login?next="+next)
+		c.Abort()
+		return
+	}
+	status := http.StatusUnauthorized
+	if code == ErrCodeForbidden {
+		status = http.StatusForbidden
+	}
+	c.AbortWithStatusJSON(status, errResp(code, message))
 }
 
 // func generateCSRFToken(tokenId, sessionId string, duration time.Duration, cfg *routerConfig) (string, error) {
@@ -122,19 +213,19 @@ func generateRecoverToken(sessionId, userId string, duration time.Duration, cfg 
 //}
 
 func getSessionSubjectOrAbort(c *gin.Context, secretKey []byte) (*SessionSubject, error) {
-	sessionToken := c.GetHeader("Authorization")
+	sessionToken := requestSessionToken(c)
 	if sessionToken == "" {
-		c.AbortWithStatusJSON(http.StatusForbidden, errResp(ErrCodeForbidden, "Session token is empty"))
+		abortUnauthorized(c, ErrCodeUnauthorized, "Session token is empty")
 		return nil, errors.New("session token is empty")
 	}
 
 	subject, err := e2jwt.VerifyWithEncryptSubject[*SessionSubject](sessionToken, secretKey)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusForbidden, errResp(ErrCodeInvalidToken, "Invalid token"))
+		abortUnauthorized(c, ErrCodeInvalidToken, "Invalid token")
 		return nil, errors.New("invalid token")
 	}
 	if subject == nil {
-		c.AbortWithStatusJSON(http.StatusForbidden, errResp(ErrCodeInvalidToken, "Invalid token"))
+		abortUnauthorized(c, ErrCodeInvalidToken, "Invalid token")
 		return nil, errors.New("invalid token")
 	}
 	return subject, nil

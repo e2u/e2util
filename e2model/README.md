@@ -1,22 +1,28 @@
 # e2model
 
-## Overview
-`e2model` defines shared data structures and model helpers used across the e2util ecosystem.
+HTTP JSON Patch 模型，以及帶 error 的 `NullBool`。
 
-## Installation
+HTTP JSON Patch model and a `NullBool` that carries an error.
+
+## 安裝 / Installation
+
 ```bash
 go get github.com/e2u/e2util/e2model
 ```
 
-## Usage
+## 功能 / Features
+
+- **HttpPatch**：`op` / `path` / `value`；`AllowOp`、`AllowPath`
+- **NullBool**：`NewNullBool(b, err)`，`Valid` 在 err==nil 時為 true
+
+## 用法 / Usage
+
 ```go
 import "github.com/e2u/e2util/e2model"
 
-type User = e2model.User
+p := &e2model.HttpPatch{Op: e2model.HttpPatchOpReplace, Path: "name", Value: "ada"}
+if p.AllowOp([]string{e2model.HttpPatchOpReplace}) {
+    // apply
+}
+nb := e2model.NewNullBool(true, nil)
 ```
-
-## Examples
-*Show example of defining a user model and using helper methods.*
-
-## API Reference
-*Exported structs, interfaces, and functions.*
