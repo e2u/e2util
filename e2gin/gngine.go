@@ -24,6 +24,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/aws/aws-lambda-go/lambda"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/e2u/e2util/e2exec"
 	h "github.com/e2u/e2util/e2html"
 	"github.com/e2u/e2util/e2io"
@@ -483,6 +485,13 @@ func StartAndStopHttp(eng *gin.Engine, address string, port int, stop func()) {
 	fmt.Println("Received SIGINT or SIGTERM. Shutting down...")
 	stop()
 	os.Exit(0)
+}
+
+// var ginLambda *ginadapter.GinLambdaV2
+
+func StartLambda(eng *gin.Engine) {
+	ginLambda := ginadapter.NewV2(eng)
+	lambda.Start(ginLambda.ProxyWithContext)
 }
 
 func customRecovery(c *gin.Context, msg any) {
