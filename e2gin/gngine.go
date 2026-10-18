@@ -31,8 +31,8 @@ import (
 	"github.com/e2u/e2util/e2io"
 	"github.com/e2u/e2util/e2os"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/contrib/ginrus"
-	"github.com/gin-gonic/contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -200,6 +200,10 @@ func staticHasFile(ffs fs.FS, name string) bool {
 }
 
 func applyEngineMiddleware(eng *gin.Engine, opt *Option) {
+	if !opt.DisableGzip {
+		eng.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+
 	if !opt.DisableRecovery {
 		eng.Use(gin.CustomRecovery(customRecovery))
 	}
@@ -210,9 +214,6 @@ func applyEngineMiddleware(eng *gin.Engine, opt *Option) {
 	}
 	eng.Use(ginrusWithSkip(logger, opt.SkipLogPaths))
 
-	if !opt.DisableGzip {
-		eng.Use(gzip.Gzip(gzip.DefaultCompression))
-	}
 }
 
 func ginrusWithSkip(logger *logrus.Logger, skip []string) gin.HandlerFunc {
@@ -261,7 +262,7 @@ func loadHTMLPage(sfs []*StaticFiles, name string) []byte {
 			}
 		}
 	}
-	return nil
+	return []byte("<!DOCTYPE html><head><title>404</title></head><body><h1>Page Not Found!</h1></body></html>")
 }
 
 // hasHTMLPage 检查是否存在指定名称的 HTML 文件
@@ -326,6 +327,7 @@ func startPprof(ctx context.Context, eng *gin.Engine, opt *Option) {
 // 支持 SPA 和非 SPA 应用：
 //   - 非 SPA: /login → 查找并返回 login.html
 //   - SPA: 如果找不到对应页面，返回 index.html 由前端路由处理
+// 如果
 func noRouteStaticIndex(sfs []*StaticFiles) gin.HandlerFunc {
 	indexPageByte := loadIndexPage(sfs)
 	liveIndex := gin.Mode() != gin.ReleaseMode
