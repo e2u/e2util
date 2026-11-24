@@ -90,7 +90,7 @@ func debounceEvent(filename string, callback func(string, fsnotify.Event), event
 		tu.Lock()
 		delete(eventTimers, eventKey)
 		tu.Unlock()
-		logrus.Infof("Callback by File event: %s, Op: %s\n", event.Name, event.Op)
+		logrus.Infof("Callback by File event: %s, Op: %s", event.Name, event.Op)
 		callback(eventKey, event)
 	})
 }
